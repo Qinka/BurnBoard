@@ -144,6 +144,20 @@ npm run dev
 
 The Vite dev server will proxy API requests to `http://localhost:3000`.
 
+## Troubleshooting
+
+### Vite build error: "failed to resolve import react-is"
+
+If you encounter an error about `react-is` not being resolved, make sure to run:
+
+```bash
+cd web
+rm -rf node_modules package-lock.json
+npm install
+```
+
+This will clean and reinstall all dependencies including `react-is` which is required by `recharts`.
+
 ## Screenshots
 
 ### Scalar Visualization
