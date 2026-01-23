@@ -7,6 +7,11 @@ use std::io::{BufWriter, Write};
 use std::path::Path;
 use std::time::{SystemTime, UNIX_EPOCH};
 
+// TensorBoard uses masked CRC32
+fn mask_crc(crc: u32) -> u32 {
+    ((crc >> 15) | (crc << 17)).wrapping_add(0xa282ead8)
+}
+
 /// High-level API for writing TensorBoard events
 pub struct EventWriter {
     writer: BufWriter<File>,
@@ -38,17 +43,22 @@ impl EventWriter {
         let data = event.encode_to_vec();
         let length = data.len() as u64;
         
+        // Calculate CRCs
+        let length_bytes = length.to_le_bytes();
+        let length_crc = mask_crc(crc32fast::hash(&length_bytes));
+        let data_crc = mask_crc(crc32fast::hash(&data));
+        
         // Write length
         self.writer.write_u64::<LittleEndian>(length)?;
         
-        // Write length CRC (simplified - use 0 for now)
-        self.writer.write_u32::<LittleEndian>(0)?;
+        // Write length CRC
+        self.writer.write_u32::<LittleEndian>(length_crc)?;
         
         // Write data
         self.writer.write_all(&data)?;
         
-        // Write data CRC (simplified - use 0 for now)
-        self.writer.write_u32::<LittleEndian>(0)?;
+        // Write data CRC
+        self.writer.write_u32::<LittleEndian>(data_crc)?;
         
         self.writer.flush()?;
         Ok(())
