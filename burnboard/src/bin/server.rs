@@ -27,6 +27,10 @@ struct ServerArgs {
     /// Bind address for the server
     #[arg(long, default_value = "127.0.0.1:6009")]
     bind_addr: String,
+
+    /// Interval in seconds for reloading events from the log directory
+    #[arg(long, default_value = "5")]
+    reload_interval: u64,
 }
 
 
@@ -193,6 +197,9 @@ fn load_events_from_dir(log_dir: &PathBuf) -> Vec<Event> {
 async fn reload_events_task(state: AppState, log_dir: PathBuf, interval_secs: u64) {
     let mut interval = tokio::time::interval(Duration::from_secs(interval_secs));
     
+    // Skip the first immediate tick to avoid reloading right after startup
+    interval.tick().await;
+    
     loop {
         interval.tick().await;
         
@@ -237,13 +244,14 @@ async fn main() -> anyhow::Result<()> {
         info!("Total events loaded: {}", events.len());
     }
 
-    // Spawn background task to periodically reload events (every 5 seconds)
+    // Spawn background task to periodically reload events
     let reload_state = state.clone();
     let reload_log_dir = args.log_dir.clone();
+    let reload_interval = args.reload_interval;
     tokio::spawn(async move {
-        reload_events_task(reload_state, reload_log_dir, 5).await;
+        reload_events_task(reload_state, reload_log_dir, reload_interval).await;
     });
-    info!("Background reload task started (interval: 5 seconds)");
+    info!("Background reload task started (interval: {} seconds)", args.reload_interval);
 
     // Build the application router
     let app = Router::new()
