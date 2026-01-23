@@ -5,13 +5,13 @@ use axum::{
     routing::get,
     Json, Router,
 };
-use burnboard_client::Event;
+use burnboard_client::{Event, EventFileParser};
 use serde::{Deserialize, Serialize};
 use std::path::PathBuf;
 use std::sync::Arc;
 use tokio::sync::RwLock;
 use tower_http::services::ServeDir;
-use tracing::{info, Level};
+use tracing::{info, warn, Level};
 use tracing_subscriber;
 
 // State shared across requests
@@ -153,8 +153,30 @@ async fn main() -> anyhow::Result<()> {
     // Load events from log directory if it exists
     if log_dir.exists() {
         info!("Loading events from {:?}", log_dir);
-        // In a real implementation, we would scan the directory for .tfevents files
-        // and load them here
+        let mut events = state.events.write().await;
+        
+        // Scan directory for .tfevents files
+        if let Ok(entries) = std::fs::read_dir(&log_dir) {
+            for entry in entries.flatten() {
+                let path = entry.path();
+                if path.extension().and_then(|s| s.to_str()) == Some("tfevents") {
+                    info!("Loading events from {:?}", path);
+                    match EventFileParser::open(&path) {
+                        Ok(mut parser) => {
+                            match parser.read_all_events() {
+                                Ok(file_events) => {
+                                    info!("Loaded {} events from {:?}", file_events.len(), path);
+                                    events.extend(file_events);
+                                }
+                                Err(e) => warn!("Failed to read events from {:?}: {}", path, e),
+                            }
+                        }
+                        Err(e) => warn!("Failed to open event file {:?}: {}", path, e),
+                    }
+                }
+            }
+        }
+        info!("Total events loaded: {}", events.len());
     }
     
     // Build the application router
