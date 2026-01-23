@@ -5,13 +5,19 @@ edition = "2021"
 license = "MIT"
 
 [[bin]]
-name = "burnboard-server"
+name = "server"
 path = "src/bin/server.rs"
+required-features = ["command-line"]
+
+[features]
+
+default = []
+command-line = ["tokio", "axum", "tower", "tower-http", "clap"]
 
 [dependencies]
 # Protobuf
-prost = "0.12"
-prost-types = "0.12"
+prost = "0.14"
+prost-types = "0.14"
 
 # Serialization
 serde = { version = "1.0", features = ["derive"] }
@@ -22,21 +28,27 @@ bytes = "1.5"
 byteorder = "1.5"
 crc32fast = "1.4"
 
+# System Info
+sys-info = "0.9"
+
 # Error handling
-thiserror = "1.0"
+thiserror = "2.0"
 anyhow = "1.0"
 
 # Async runtime
-tokio = { version = "1.35", features = ["full"] }
+tokio = { version = "1.35", features = ["full"], optional = true  }
 
 # Web server
-axum = "0.7"
-tower = "0.4"
-tower-http = { version = "0.5", features = ["fs", "trace"] }
+axum = { version = "0.8", optional = true }
+tower = { version = "0.5", optional = true }
+tower-http = { version = "0.6", features = ["fs", "trace"], optional = true  }
+clap = { version = "4.3", features = ["derive"], optional = true }
 
 # Logging
 tracing = "0.1"
 tracing-subscriber = { version = "0.3", features = ["env-filter"] }
 
+
+
 [build-dependencies]
-prost-build = "0.12"
+prost-build = "0.14"

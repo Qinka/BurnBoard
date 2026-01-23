@@ -13,6 +13,21 @@ use tokio::sync::RwLock;
 use tower_http::services::ServeDir;
 use tracing::{info, warn, Level};
 use tracing_subscriber;
+use clap::Parser;
+
+
+#[derive(Parser, Debug)]
+#[command(author, version, about, long_about = None)]
+struct ServerArgs {
+    /// Directory where TensorBoard logs are stored
+    #[arg(long, default_value = "./logs")]
+    log_dir: PathBuf,
+
+    /// Bind address for the server
+    #[arg(long, default_value = "127.0.0.1:6009")]
+    bind_addr: String,
+}
+
 
 // State shared across requests
 #[derive(Clone)]
@@ -72,14 +87,17 @@ where
 }
 
 // Handler: Get scalar data
-async fn get_scalars(State(state): State<AppState>) -> Result<Json<ApiResponse<Vec<ScalarData>>>, AppError> {
+async fn get_scalars(
+    State(state): State<AppState>,
+) -> Result<Json<ApiResponse<Vec<ScalarData>>>, AppError> {
     let events = state.events.read().await;
     let mut scalars = Vec::new();
-    
+
     for event in events.iter() {
         if let Some(burnboard::proto::event::What::Summary(summary)) = &event.what {
             for value in &summary.value {
-                if let Some(burnboard::proto::summary::value::Value::SimpleValue(v)) = &value.value {
+                if let Some(burnboard::proto::summary::value::Value::SimpleValue(v)) = &value.value
+                {
                     scalars.push(ScalarData {
                         tag: value.tag.clone(),
                         step: event.step,
@@ -90,7 +108,7 @@ async fn get_scalars(State(state): State<AppState>) -> Result<Json<ApiResponse<V
             }
         }
     }
-    
+
     let count = scalars.len();
     Ok(Json(ApiResponse {
         data: scalars,
@@ -99,10 +117,12 @@ async fn get_scalars(State(state): State<AppState>) -> Result<Json<ApiResponse<V
 }
 
 // Handler: Get histogram data
-async fn get_histograms(State(state): State<AppState>) -> Result<Json<ApiResponse<Vec<HistogramData>>>, AppError> {
+async fn get_histograms(
+    State(state): State<AppState>,
+) -> Result<Json<ApiResponse<Vec<HistogramData>>>, AppError> {
     let events = state.events.read().await;
     let mut histograms = Vec::new();
-    
+
     for event in events.iter() {
         if let Some(burnboard::proto::event::What::Summary(summary)) = &event.what {
             for value in &summary.value {
@@ -121,7 +141,7 @@ async fn get_histograms(State(state): State<AppState>) -> Result<Json<ApiRespons
             }
         }
     }
-    
+
     let count = histograms.len();
     Ok(Json(ApiResponse {
         data: histograms,
@@ -137,40 +157,45 @@ async fn health_check() -> &'static str {
 #[tokio::main]
 async fn main() -> anyhow::Result<()> {
     // Initialize tracing
-    tracing_subscriber::fmt()
-        .with_max_level(Level::INFO)
-        .init();
-    
+    tracing_subscriber::fmt().with_max_level(Level::INFO).init();
+
+    let args = ServerArgs::parse();
+    info!("Log directory: {:?}", args.log_dir);
+    info!("Bind address: {}", args.bind_addr);
+
+
     info!("Starting BurnBoard server...");
-    
+
     // Create application state
-    let log_dir = PathBuf::from("./logs");
     let state = AppState {
         events: Arc::new(RwLock::new(Vec::new())),
-        log_dir: log_dir.clone(),
+        log_dir: args.log_dir.clone(),
     };
-    
+
     // Load events from log directory if it exists
-    if log_dir.exists() {
-        info!("Loading events from {:?}", log_dir);
+    if args.log_dir.exists() {
+        info!("Loading events from {:?}", args.log_dir);
         let mut events = state.events.write().await;
-        
+
         // Scan directory for .tfevents files
-        if let Ok(entries) = std::fs::read_dir(&log_dir) {
+        if let Ok(entries) = std::fs::read_dir(&args.log_dir) {
             for entry in entries.flatten() {
                 let path = entry.path();
-                if path.extension().and_then(|s| s.to_str()) == Some("tfevents") {
+                if path
+                    .file_name()
+                    .and_then(|s| s.to_str())
+                    .and_then(|s| s.split('.').find(|&s| s == "tfevents"))
+                    .is_some()
+                {
                     info!("Loading events from {:?}", path);
                     match EventFileParser::open(&path) {
-                        Ok(mut parser) => {
-                            match parser.read_all_events() {
-                                Ok(file_events) => {
-                                    info!("Loaded {} events from {:?}", file_events.len(), path);
-                                    events.extend(file_events);
-                                }
-                                Err(e) => warn!("Failed to read events from {:?}: {}", path, e),
+                        Ok(mut parser) => match parser.read_all_events() {
+                            Ok(file_events) => {
+                                info!("Loaded {} events from {:?}", file_events.len(), path);
+                                events.extend(file_events);
                             }
-                        }
+                            Err(e) => warn!("Failed to read events from {:?}: {}", path, e),
+                        },
                         Err(e) => warn!("Failed to open event file {:?}: {}", path, e),
                     }
                 }
@@ -178,21 +203,20 @@ async fn main() -> anyhow::Result<()> {
         }
         info!("Total events loaded: {}", events.len());
     }
-    
+
     // Build the application router
     let app = Router::new()
         .route("/health", get(health_check))
         .route("/api/scalars", get(get_scalars))
         .route("/api/histograms", get(get_histograms))
-        .nest_service("/", ServeDir::new("assets/web"))
+        .fallback_service(ServeDir::new("assets/web"))
         .with_state(state);
-    
+
     // Start the server
-    let addr = "0.0.0.0:3000";
-    info!("Server listening on {}", addr);
-    
-    let listener = tokio::net::TcpListener::bind(addr).await?;
+    info!("Server listening on {}", args.bind_addr);
+
+    let listener = tokio::net::TcpListener::bind(&args.bind_addr).await?;
     axum::serve(listener, app).await?;
-    
+
     Ok(())
 }

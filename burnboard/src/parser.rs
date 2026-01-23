@@ -19,7 +19,7 @@ impl EventFileParser {
             reader: BufReader::new(file),
         })
     }
-    
+
     /// Read the next event from the file
     pub fn read_event(&mut self) -> Result<Option<Event>> {
         // TensorBoard event files use the following format:
@@ -27,29 +27,29 @@ impl EventFileParser {
         // uint32 masked_crc32 of length
         // byte data[length]
         // uint32 masked_crc32 of data
-        
+
         // Read length
         let length = match self.reader.read_u64::<LittleEndian>() {
             Ok(len) => len,
             Err(e) if e.kind() == std::io::ErrorKind::UnexpectedEof => return Ok(None),
             Err(e) => return Err(e.into()),
         };
-        
+
         // Read and verify length CRC (optional - we just read it for now)
         let _length_crc = self.reader.read_u32::<LittleEndian>()?;
-        
+
         // Read data
         let mut data = vec![0u8; length as usize];
         self.reader.read_exact(&mut data)?;
-        
+
         // Read and verify data CRC (optional - we just read it for now)
         let _data_crc = self.reader.read_u32::<LittleEndian>()?;
-        
+
         // Parse the event
         let event = Event::decode(&data[..])?;
         Ok(Some(event))
     }
-    
+
     /// Read all events from the file
     pub fn read_all_events(&mut self) -> Result<Vec<Event>> {
         let mut events = Vec::new();
