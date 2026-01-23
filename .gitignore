@@ -29,3 +29,7 @@ web/dist/.gitkeep
 # Build output
 assets/web
 !assets/web/.gitkeep
+
+# Logs
+logs
+logs.*

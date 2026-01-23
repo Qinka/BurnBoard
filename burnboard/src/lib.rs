@@ -12,11 +12,11 @@ pub use writer::EventWriter;
 #[cfg(test)]
 mod tests {
     use super::*;
-    
+
     #[test]
     fn test_basic_workflow() {
         // Test that we can create a writer and parser
-        let result = EventWriter::create("/tmp/test_workflow.tfevents");
+        let result = EventWriter::new("/tmp/test_workflow.tfevents");
         assert!(result.is_ok());
     }
 }
