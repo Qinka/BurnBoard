@@ -53,8 +53,8 @@ impl EventWriter {
 
         // Calculate CRCs
         let length_bytes = length.to_le_bytes();
-        let length_crc = mask_crc(crc32fast::hash(&length_bytes));
-        let data_crc = mask_crc(crc32fast::hash(&data));
+        let length_crc = mask_crc(crc32c::crc32c(&length_bytes));
+        let data_crc = mask_crc(crc32c::crc32c(&data));
 
         // Write length
         self.writer.write_u64::<LittleEndian>(length)?;
