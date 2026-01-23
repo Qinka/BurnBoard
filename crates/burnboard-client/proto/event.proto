@@ -1,0 +1,55 @@
+syntax = "proto3";
+
+package tensorflow;
+
+// TensorBoard event file format
+message Event {
+  // Timestamp in seconds since epoch
+  double wall_time = 1;
+  
+  // Global step value
+  int64 step = 2;
+  
+  oneof what {
+    // A scalar summary
+    Summary summary = 5;
+  }
+}
+
+message Summary {
+  message Image {
+    // Dimensions of the image
+    int32 height = 1;
+    int32 width = 2;
+    int32 colorspace = 3;
+    
+    // Encoded image bytes
+    bytes encoded_image_string = 4;
+  }
+  
+  message Value {
+    // Tag name for the data
+    string tag = 1;
+    
+    oneof value {
+      float simple_value = 2;
+      Image image = 4;
+      HistogramProto histo = 5;
+    }
+  }
+  
+  // Set of values for the summary
+  repeated Value value = 1;
+}
+
+message HistogramProto {
+  double min = 1;
+  double max = 2;
+  double num = 3;
+  double sum = 4;
+  double sum_squares = 5;
+  
+  // Histogram buckets
+  repeated double bucket_limit = 6;
+  repeated double bucket = 7;
+}
