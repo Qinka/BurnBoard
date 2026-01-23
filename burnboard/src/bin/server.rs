@@ -9,6 +9,7 @@ use burnboard::{Event, EventFileParser};
 use serde::{Deserialize, Serialize};
 use std::path::PathBuf;
 use std::sync::Arc;
+use std::time::Duration;
 use tokio::sync::RwLock;
 use tower_http::services::ServeDir;
 use tracing::{info, warn, Level};
@@ -154,6 +155,61 @@ async fn health_check() -> &'static str {
     "OK"
 }
 
+/// Load events from the log directory
+fn load_events_from_dir(log_dir: &PathBuf) -> Vec<Event> {
+    let mut events = Vec::new();
+    
+    if !log_dir.exists() {
+        return events;
+    }
+    
+    // Scan directory for .tfevents files
+    if let Ok(entries) = std::fs::read_dir(log_dir) {
+        for entry in entries.flatten() {
+            let path = entry.path();
+            if path
+                .file_name()
+                .and_then(|s| s.to_str())
+                .and_then(|s| s.split('.').find(|&s| s == "tfevents"))
+                .is_some()
+            {
+                match EventFileParser::open(&path) {
+                    Ok(mut parser) => match parser.read_all_events() {
+                        Ok(file_events) => {
+                            events.extend(file_events);
+                        }
+                        Err(e) => warn!("Failed to read events from {:?}: {}", path, e),
+                    },
+                    Err(e) => warn!("Failed to open event file {:?}: {}", path, e),
+                }
+            }
+        }
+    }
+    
+    events
+}
+
+/// Background task to periodically reload events from the log directory
+async fn reload_events_task(state: AppState, log_dir: PathBuf, interval_secs: u64) {
+    let mut interval = tokio::time::interval(Duration::from_secs(interval_secs));
+    
+    loop {
+        interval.tick().await;
+        
+        let new_events = load_events_from_dir(&log_dir);
+        let new_count = new_events.len();
+        
+        let mut events = state.events.write().await;
+        let old_count = events.len();
+        
+        *events = new_events;
+        
+        if new_count != old_count {
+            info!("Reloaded events: {} -> {} events", old_count, new_count);
+        }
+    }
+}
+
 #[tokio::main]
 async fn main() -> anyhow::Result<()> {
     // Initialize tracing
@@ -172,37 +228,22 @@ async fn main() -> anyhow::Result<()> {
         log_dir: args.log_dir.clone(),
     };
 
-    // Load events from log directory if it exists
-    if args.log_dir.exists() {
+    // Initial load of events from log directory
+    {
         info!("Loading events from {:?}", args.log_dir);
+        let initial_events = load_events_from_dir(&args.log_dir);
         let mut events = state.events.write().await;
-
-        // Scan directory for .tfevents files
-        if let Ok(entries) = std::fs::read_dir(&args.log_dir) {
-            for entry in entries.flatten() {
-                let path = entry.path();
-                if path
-                    .file_name()
-                    .and_then(|s| s.to_str())
-                    .and_then(|s| s.split('.').find(|&s| s == "tfevents"))
-                    .is_some()
-                {
-                    info!("Loading events from {:?}", path);
-                    match EventFileParser::open(&path) {
-                        Ok(mut parser) => match parser.read_all_events() {
-                            Ok(file_events) => {
-                                info!("Loaded {} events from {:?}", file_events.len(), path);
-                                events.extend(file_events);
-                            }
-                            Err(e) => warn!("Failed to read events from {:?}: {}", path, e),
-                        },
-                        Err(e) => warn!("Failed to open event file {:?}: {}", path, e),
-                    }
-                }
-            }
-        }
+        *events = initial_events;
         info!("Total events loaded: {}", events.len());
     }
+
+    // Spawn background task to periodically reload events (every 5 seconds)
+    let reload_state = state.clone();
+    let reload_log_dir = args.log_dir.clone();
+    tokio::spawn(async move {
+        reload_events_task(reload_state, reload_log_dir, 5).await;
+    });
+    info!("Background reload task started (interval: 5 seconds)");
 
     // Build the application router
     let app = Router::new()
