@@ -1,5 +1,5 @@
 [workspace]
-members = ["crates/burnboard-client", "crates/burnboard-server"]
+members = ["burnboard"]
 resolver = "2"
 
 [workspace.package]

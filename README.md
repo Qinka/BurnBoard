@@ -4,13 +4,14 @@ A TensorBoard-compatible visualization dashboard built with Rust and React.
 
 ## Features
 
-- **Rust Client Library** (`burnboard-client`)
+- **Unified Rust Library** (`burnboard`)
   - Parse TensorBoard event files (`.tfevents`)
   - High-level APIs for logging scalars, histograms, and images
   - Comprehensive error handling
   - Compatible with TensorBoard's protobuf format
+  - Includes server binary for visualization
 
-- **Axum-based Server** (`burnboard-server`)
+- **Axum-based Server**
   - RESTful APIs for exposing parsed data
   - Endpoints: `/api/scalars`, `/api/histograms`
   - Static file serving for the web frontend
@@ -27,26 +28,23 @@ A TensorBoard-compatible visualization dashboard built with Rust and React.
 
 ```
 BurnBoard/
-├── crates/
-│   ├── burnboard-client/     # Rust client library
-│   │   ├── src/
-│   │   │   ├── lib.rs         # Public API
-│   │   │   ├── parser.rs      # Event file parser
-│   │   │   ├── writer.rs      # Event writer
-│   │   │   ├── error.rs       # Error types
-│   │   │   └── proto/         # Protobuf definitions
-│   │   ├── proto/
-│   │   │   └── event.proto    # TensorBoard event format
-│   │   ├── examples/          # Example usage
-│   │   └── Cargo.toml
-│   └── burnboard-server/      # Axum server
-│       ├── src/bin/
-│       │   └── server.rs      # Server binary
-│       └── Cargo.toml
-├── web/                       # React frontend
+├── burnboard/                  # Unified Rust crate
 │   ├── src/
-│   │   ├── App.jsx            # Main app component
-│   │   ├── components/        # UI components
+│   │   ├── lib.rs              # Public API
+│   │   ├── parser.rs           # Event file parser
+│   │   ├── writer.rs           # Event writer
+│   │   ├── error.rs            # Error types
+│   │   ├── proto/              # Protobuf definitions
+│   │   └── bin/
+│   │       └── server.rs       # Server binary
+│   ├── proto/
+│   │   └── event.proto         # TensorBoard event format
+│   ├── examples/               # Example usage
+│   └── Cargo.toml
+├── web/                        # React frontend
+│   ├── src/
+│   │   ├── App.jsx             # Main app component
+│   │   ├── components/         # UI components
 │   │   │   ├── ScalarChart.jsx
 │   │   │   └── HistogramChart.jsx
 │   │   └── ...
@@ -88,22 +86,22 @@ npm run build
 
 1. Generate some sample event data:
 ```bash
-cargo run --example write_sample_data -p burnboard-client
+cargo run --example write_sample_data
 ```
 
 2. Start the server:
 ```bash
-cargo run --release -p burnboard-server --bin burnboard-server
+cargo run --release --bin burnboard-server
 ```
 
 3. Open your browser to `http://localhost:3000`
 
 ## Usage
 
-### Writing Events (Client Library)
+### Writing Events (Library)
 
 ```rust
-use burnboard_client::{EventWriter, Result};
+use burnboard::{EventWriter, Result};
 
 fn main() -> Result<()> {
     let mut writer = EventWriter::create("./logs/events.tfevents")?;
@@ -133,11 +131,8 @@ fn main() -> Result<()> {
 ### Running Tests
 
 ```bash
-# Test client library
-cargo test -p burnboard-client
-
-# Test server
-cargo test -p burnboard-server
+# Test the library
+cargo test
 ```
 
 ### Development Mode (Frontend)

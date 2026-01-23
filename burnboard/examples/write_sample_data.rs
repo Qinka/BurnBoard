@@ -1,4 +1,4 @@
-use burnboard_client::{EventWriter, Result};
+use burnboard::{EventWriter, Result};
 
 fn main() -> Result<()> {
     let mut writer = EventWriter::create("./logs/sample_events.tfevents")?;

@@ -96,27 +96,20 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "812e12b5285cc515a9c72a5c1d3b6d46a19dac5acfef5265968c166106e31dd3"
 
 [[package]]
-name = "burnboard-client"
+name = "burnboard"
 version = "0.1.0"
 dependencies = [
+ "anyhow",
+ "axum",
  "byteorder",
  "bytes",
  "crc32fast",
  "prost",
  "prost-build",
  "prost-types",
- "thiserror",
-]
-
-[[package]]
-name = "burnboard-server"
-version = "0.1.0"
-dependencies = [
- "anyhow",
- "axum",
- "burnboard-client",
  "serde",
  "serde_json",
+ "thiserror",
  "tokio",
  "tower 0.4.13",
  "tower-http",

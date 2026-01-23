@@ -5,7 +5,7 @@ use axum::{
     routing::get,
     Json, Router,
 };
-use burnboard_client::{Event, EventFileParser};
+use burnboard::{Event, EventFileParser};
 use serde::{Deserialize, Serialize};
 use std::path::PathBuf;
 use std::sync::Arc;
@@ -77,9 +77,9 @@ async fn get_scalars(State(state): State<AppState>) -> Result<Json<ApiResponse<V
     let mut scalars = Vec::new();
     
     for event in events.iter() {
-        if let Some(burnboard_client::proto::event::What::Summary(summary)) = &event.what {
+        if let Some(burnboard::proto::event::What::Summary(summary)) = &event.what {
             for value in &summary.value {
-                if let Some(burnboard_client::proto::summary::value::Value::SimpleValue(v)) = &value.value {
+                if let Some(burnboard::proto::summary::value::Value::SimpleValue(v)) = &value.value {
                     scalars.push(ScalarData {
                         tag: value.tag.clone(),
                         step: event.step,
@@ -104,9 +104,9 @@ async fn get_histograms(State(state): State<AppState>) -> Result<Json<ApiRespons
     let mut histograms = Vec::new();
     
     for event in events.iter() {
-        if let Some(burnboard_client::proto::event::What::Summary(summary)) = &event.what {
+        if let Some(burnboard::proto::event::What::Summary(summary)) = &event.what {
             for value in &summary.value {
-                if let Some(burnboard_client::proto::summary::value::Value::Histo(h)) = &value.value {
+                if let Some(burnboard::proto::summary::value::Value::Histo(h)) = &value.value {
                     histograms.push(HistogramData {
                         tag: value.tag.clone(),
                         step: event.step,
