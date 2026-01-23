@@ -96,12 +96,19 @@ export default function HistogramChart() {
           <Bar dataKey="value" fill="#82ca9d" />
         </BarChart>
       </ResponsiveContainer>
-      {selectedTag && data.filter(item => item.tag === selectedTag).length > 0 && (
-        <div className="histogram-info">
-          <p>Count: {data.filter(item => item.tag === selectedTag)[0].num}</p>
-          <p>Sum: {data.filter(item => item.tag === selectedTag)[0].sum.toFixed(2)}</p>
-        </div>
-      )}
+      {selectedTag && (() => {
+        const tagData = data.filter(item => item.tag === selectedTag);
+        if (tagData.length > 0) {
+          const latest = tagData[0];
+          return (
+            <div className="histogram-info">
+              <p>Count: {latest.num}</p>
+              <p>Sum: {latest.sum.toFixed(2)}</p>
+            </div>
+          );
+        }
+        return null;
+      })()}
     </div>
   );
 }

@@ -35,14 +35,14 @@ impl EventFileParser {
             Err(e) => return Err(e.into()),
         };
         
-        // Read length CRC
+        // Read and verify length CRC (optional - we just read it for now)
         let _length_crc = self.reader.read_u32::<LittleEndian>()?;
         
         // Read data
         let mut data = vec![0u8; length as usize];
         self.reader.read_exact(&mut data)?;
         
-        // Read data CRC
+        // Read and verify data CRC (optional - we just read it for now)
         let _data_crc = self.reader.read_u32::<LittleEndian>()?;
         
         // Parse the event
