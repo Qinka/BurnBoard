@@ -62,8 +62,6 @@ impl EventFileParser {
 
 #[cfg(test)]
 mod tests {
-    use super::*;
-    
     #[test]
     fn test_parser_creation() {
         // This test requires a valid event file to be present
