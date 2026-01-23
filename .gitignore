@@ -25,3 +25,7 @@ node_modules
 web/node_modules
 web/.vite
 web/dist/.gitkeep
+
+# Build output
+assets/web
+!assets/web/.gitkeep

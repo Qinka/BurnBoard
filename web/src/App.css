@@ -1,0 +1,149 @@
+:root {
+  font-family: Inter, system-ui, Avenir, Helvetica, Arial, sans-serif;
+  line-height: 1.5;
+  font-weight: 400;
+
+  color-scheme: light dark;
+  color: rgba(255, 255, 255, 0.87);
+  background-color: #242424;
+
+  font-synthesis: none;
+  text-rendering: optimizeLegibility;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+.app {
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 2rem;
+  text-align: center;
+}
+
+.app-header {
+  margin-bottom: 2rem;
+}
+
+.app-header h1 {
+  font-size: 3rem;
+  margin: 0;
+}
+
+.app-header p {
+  color: #888;
+  margin-top: 0.5rem;
+}
+
+.app-nav {
+  display: flex;
+  gap: 1rem;
+  justify-content: center;
+  margin-bottom: 2rem;
+}
+
+.app-nav button {
+  padding: 0.75rem 1.5rem;
+  font-size: 1rem;
+  border: 1px solid #646cff;
+  background-color: transparent;
+  color: #646cff;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: all 0.3s;
+}
+
+.app-nav button:hover {
+  background-color: #646cff;
+  color: white;
+}
+
+.app-nav button.active {
+  background-color: #646cff;
+  color: white;
+}
+
+.app-main {
+  min-height: 500px;
+}
+
+.chart-container {
+  background-color: #1a1a1a;
+  padding: 2rem;
+  border-radius: 12px;
+  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+}
+
+.chart-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 1.5rem;
+}
+
+.chart-header h2 {
+  margin: 0;
+  text-align: left;
+}
+
+.tag-selector {
+  padding: 0.5rem;
+  font-size: 1rem;
+  border-radius: 4px;
+  border: 1px solid #646cff;
+  background-color: #242424;
+  color: white;
+}
+
+.loading, .error {
+  padding: 2rem;
+  font-size: 1.2rem;
+}
+
+.error {
+  color: #ff6b6b;
+}
+
+.histogram-info {
+  margin-top: 1rem;
+  display: flex;
+  gap: 2rem;
+  justify-content: center;
+  color: #888;
+}
+
+.app-footer {
+  margin-top: 3rem;
+  padding-top: 2rem;
+  border-top: 1px solid #333;
+  color: #888;
+}
+
+@media (prefers-color-scheme: light) {
+  :root {
+    color: #213547;
+    background-color: #ffffff;
+  }
+  
+  .app-nav button {
+    border-color: #747bff;
+    color: #747bff;
+  }
+  
+  .app-nav button:hover,
+  .app-nav button.active {
+    background-color: #747bff;
+  }
+  
+  .chart-container {
+    background-color: #f9f9f9;
+  }
+  
+  .tag-selector {
+    background-color: white;
+    color: #213547;
+  }
+}
