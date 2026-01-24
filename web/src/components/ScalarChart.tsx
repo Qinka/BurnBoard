@@ -25,9 +25,10 @@ interface SingleTagChartData {
   step: number;
   wall_time: number;
   relative_time: number;
-  value: number;
-  smoothed: number;
-  original: number;
+  value: number;        // Transformed value for display
+  smoothed: number;     // Smoothed and transformed value
+  original: number;     // Transformed original value (for original line display)
+  rawValue: number;     // Raw untransformed value (for statistics)
 }
 
 export interface ScalarChartHandle {
@@ -61,7 +62,7 @@ const applySmoothing = (data: SingleTagChartData[], smoothingFactor: number): Si
     smoothed.push({
       ...point,
       smoothed: currentSmoothed,
-      original: point.value,
+      original: point.value,  // Keep the transformed value for the original line
     });
     lastSmoothed = currentSmoothed;
   }
@@ -70,10 +71,10 @@ const applySmoothing = (data: SingleTagChartData[], smoothingFactor: number): Si
 };
 
 // Apply Y-axis transformation
-const applyTransform = (value: number, scaleType: YScaleType): number => {
+const applyTransform = (value: number, scaleType: YScaleType): number | null => {
   if (scaleType === 'log') {
-    // Handle zero and negative values for log scale
-    if (value <= 0) return 0;
+    // Handle zero and negative values for log scale - return null to indicate invalid
+    if (value <= 0) return null;
     return Math.log10(value);
   }
   return value;
@@ -182,17 +183,23 @@ const ScalarChart = forwardRef<ScalarChartHandle>(function ScalarChart(_props, r
     
     const firstWallTime = tagData[0].wall_time;
     
-    const baseData = tagData.map(item => {
-      const value = applyTransform(item.value, yScaleType);
-      return {
-        step: item.step,
-        wall_time: item.wall_time,
-        relative_time: item.wall_time - firstWallTime,
-        value: value,
-        smoothed: value,
-        original: value,
-      };
-    });
+    // First pass: create base data with raw values, filtering out invalid values for log scale
+    const baseData = tagData
+      .map(item => {
+        const transformedValue = applyTransform(item.value, yScaleType);
+        // Skip invalid log values (null means invalid - zero or negative in log scale)
+        if (transformedValue === null) return null;
+        return {
+          step: item.step,
+          wall_time: item.wall_time,
+          relative_time: item.wall_time - firstWallTime,
+          value: transformedValue,
+          smoothed: transformedValue,
+          original: transformedValue,
+          rawValue: item.value,  // Keep untransformed value for statistics
+        };
+      })
+      .filter((item): item is SingleTagChartData => item !== null);
     
     return applySmoothing(baseData, smoothing);
   };
@@ -409,7 +416,7 @@ const ScalarChart = forwardRef<ScalarChartHandle>(function ScalarChart(_props, r
                       />
                       <Tooltip 
                         formatter={(value: number, name: string) => [
-                          yScaleType === 'log' ? `10^${value.toFixed(3)} = ${Math.pow(10, value).toFixed(4)}` : value.toFixed(4),
+                          yScaleType === 'log' ? `10^${value.toFixed(3)} = ${(10 ** value).toFixed(4)}` : value.toFixed(4),
                           name
                         ]}
                         labelFormatter={(label) => formatXAxisTick(label as number, xAxisType)}
@@ -442,9 +449,9 @@ const ScalarChart = forwardRef<ScalarChartHandle>(function ScalarChart(_props, r
                     <span>Points: {chartData.length}</span>
                     {chartData.length > 0 && (
                       <>
-                        <span>Min: {Math.min(...chartData.map(d => d.original)).toFixed(4)}</span>
-                        <span>Max: {Math.max(...chartData.map(d => d.original)).toFixed(4)}</span>
-                        <span>Last: {chartData[chartData.length - 1]?.original.toFixed(4)}</span>
+                        <span>Min: {Math.min(...chartData.map(d => d.rawValue)).toFixed(4)}</span>
+                        <span>Max: {Math.max(...chartData.map(d => d.rawValue)).toFixed(4)}</span>
+                        <span>Last: {chartData[chartData.length - 1]?.rawValue.toFixed(4)}</span>
                       </>
                     )}
                   </div>
