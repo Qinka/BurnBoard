@@ -1,66 +1,142 @@
+/* ============================================
+   BurnBoard - TensorBoard-Inspired UI Design
+   ============================================ */
+
+/* CSS Custom Properties for Theming */
 :root {
-  font-family: Inter, system-ui, Avenir, Helvetica, Arial, sans-serif;
+  /* Primary Colors - TensorBoard Orange */
+  --primary-orange: #FF6F00;
+  --primary-orange-light: #FF9800;
+  --primary-orange-dark: #E65100;
+  
+  /* Background Colors - Dark Mode */
+  --bg-primary: #1a1a1a;
+  --bg-secondary: #242424;
+  --bg-surface: #2d2d2d;
+  --bg-surface-hover: #383838;
+  --bg-surface-elevated: #333333;
+  
+  /* Text Colors - Dark Mode */
+  --text-primary: #ffffff;
+  --text-secondary: #b0b0b0;
+  --text-muted: #888888;
+  
+  /* Chart Colors */
+  --chart-primary: #FF6F00;
+  --chart-secondary: #2196F3;
+  --chart-grid: #404040;
+  
+  /* Borders */
+  --border-subtle: rgba(255, 255, 255, 0.1);
+  --border-medium: rgba(255, 255, 255, 0.2);
+  
+  /* Shadows */
+  --shadow-sm: 0 1px 3px rgba(0, 0, 0, 0.3);
+  --shadow-md: 0 4px 6px rgba(0, 0, 0, 0.4);
+  --shadow-lg: 0 10px 25px rgba(0, 0, 0, 0.5);
+  
+  /* Typography */
+  font-family: 'Roboto', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
   line-height: 1.5;
   font-weight: 400;
-
-  color-scheme: light dark;
-  color: rgba(255, 255, 255, 0.87);
-  background-color: #242424;
-
   font-synthesis: none;
   text-rendering: optimizeLegibility;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
+  
+  color-scheme: dark;
+  color: var(--text-primary);
+  background-color: var(--bg-primary);
 }
 
 * {
   box-sizing: border-box;
+  margin: 0;
+  padding: 0;
 }
+
+/* ============================================
+   Layout Structure
+   ============================================ */
 
 .app {
-  max-width: 1200px;
-  margin: 0 auto;
-  padding: 2rem;
-  text-align: center;
+  display: flex;
+  flex-direction: column;
+  min-height: 100vh;
 }
+
+/* ============================================
+   Header - TensorBoard Style
+   ============================================ */
 
 .app-header {
-  margin-bottom: 2rem;
+  background: linear-gradient(135deg, var(--bg-secondary) 0%, var(--bg-surface) 100%);
+  border-bottom: 3px solid var(--primary-orange);
+  padding: 1rem 2rem;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  position: sticky;
+  top: 0;
+  z-index: 100;
+  box-shadow: var(--shadow-md);
 }
 
-.app-header h1 {
-  font-size: 3rem;
+.header-brand {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.header-brand .logo {
+  font-size: 1.75rem;
+}
+
+.header-brand h1 {
+  font-size: 1.5rem;
+  font-weight: 500;
   margin: 0;
+  color: var(--text-primary);
+  letter-spacing: 0.5px;
 }
 
-.app-header p {
-  color: #888;
-  margin-top: 0.5rem;
+.header-brand .tagline {
+  font-size: 0.75rem;
+  color: var(--text-muted);
+  margin-left: 0.5rem;
+  padding-left: 0.5rem;
+  border-left: 1px solid var(--border-subtle);
 }
 
 .refresh-controls {
   display: flex;
   gap: 1rem;
-  justify-content: center;
   align-items: center;
-  margin-bottom: 1.5rem;
-  flex-wrap: wrap;
 }
 
 .refresh-button {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
   padding: 0.5rem 1rem;
-  font-size: 0.9rem;
-  border: 1px solid #4CAF50;
-  background-color: transparent;
-  color: #4CAF50;
-  border-radius: 6px;
+  font-size: 0.875rem;
+  font-weight: 500;
+  border: none;
+  background-color: var(--primary-orange);
+  color: white;
+  border-radius: 4px;
   cursor: pointer;
-  transition: all 0.3s;
+  transition: all 0.2s ease;
 }
 
 .refresh-button:hover {
-  background-color: #4CAF50;
-  color: white;
+  background-color: var(--primary-orange-light);
+  transform: translateY(-1px);
+  box-shadow: var(--shadow-sm);
+}
+
+.refresh-button:active {
+  transform: translateY(0);
 }
 
 .auto-refresh-toggle {
@@ -68,30 +144,38 @@
   align-items: center;
   gap: 0.5rem;
   cursor: pointer;
-  color: #888;
+  color: var(--text-secondary);
+  font-size: 0.875rem;
 }
 
 .auto-refresh-toggle input {
   cursor: pointer;
   width: 16px;
   height: 16px;
+  accent-color: var(--primary-orange);
 }
 
 .interval-selector {
   display: flex;
   align-items: center;
   gap: 0.5rem;
-  color: #888;
+  color: var(--text-secondary);
+  font-size: 0.875rem;
 }
 
 .interval-selector select {
-  padding: 0.25rem 0.5rem;
-  font-size: 0.9rem;
+  padding: 0.375rem 0.75rem;
+  font-size: 0.875rem;
   border-radius: 4px;
-  border: 1px solid #646cff;
-  background-color: #242424;
-  color: white;
+  border: 1px solid var(--border-medium);
+  background-color: var(--bg-surface);
+  color: var(--text-primary);
   cursor: pointer;
+  transition: border-color 0.2s ease;
+}
+
+.interval-selector select:hover {
+  border-color: var(--primary-orange);
 }
 
 .interval-selector select:disabled {
@@ -100,106 +184,274 @@
 }
 
 .last-refresh {
-  color: #888;
-  font-size: 0.85rem;
+  color: var(--text-muted);
+  font-size: 0.75rem;
 }
 
-.app-nav {
+/* ============================================
+   Main Layout - Sidebar + Content
+   ============================================ */
+
+.app-body {
   display: flex;
-  gap: 1rem;
-  justify-content: center;
-  margin-bottom: 2rem;
+  flex: 1;
 }
 
-.app-nav button {
-  padding: 0.75rem 1.5rem;
-  font-size: 1rem;
-  border: 1px solid #646cff;
-  background-color: transparent;
-  color: #646cff;
-  border-radius: 8px;
+/* ============================================
+   Sidebar Navigation
+   ============================================ */
+
+.app-sidebar {
+  width: 200px;
+  background-color: var(--bg-secondary);
+  border-right: 1px solid var(--border-subtle);
+  padding: 1.5rem 0;
+  flex-shrink: 0;
+}
+
+.sidebar-nav {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+}
+
+.nav-item {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0.875rem 1.5rem;
+  font-size: 0.875rem;
+  font-weight: 500;
+  color: var(--text-secondary);
+  background: transparent;
+  border: none;
+  border-left: 3px solid transparent;
   cursor: pointer;
-  transition: all 0.3s;
+  transition: all 0.2s ease;
+  text-align: left;
+  width: 100%;
 }
 
-.app-nav button:hover {
-  background-color: #646cff;
-  color: white;
+.nav-item:hover {
+  background-color: var(--bg-surface-hover);
+  color: var(--text-primary);
 }
 
-.app-nav button.active {
-  background-color: #646cff;
-  color: white;
+.nav-item.active {
+  background-color: rgba(255, 111, 0, 0.1);
+  color: var(--primary-orange);
+  border-left-color: var(--primary-orange);
 }
+
+.nav-icon {
+  font-size: 1.125rem;
+  width: 1.5rem;
+  text-align: center;
+}
+
+/* ============================================
+   Main Content Area
+   ============================================ */
 
 .app-main {
-  min-height: 500px;
+  flex: 1;
+  padding: 1.5rem 2rem;
+  overflow-y: auto;
+  background-color: var(--bg-primary);
 }
 
+/* ============================================
+   Chart Container (Card Style)
+   ============================================ */
+
 .chart-container {
-  background-color: #1a1a1a;
-  padding: 2rem;
-  border-radius: 12px;
-  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+  background-color: var(--bg-surface);
+  border-radius: 8px;
+  border: 1px solid var(--border-subtle);
+  box-shadow: var(--shadow-sm);
+  overflow: hidden;
 }
 
 .chart-header {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  margin-bottom: 1.5rem;
+  padding: 1rem 1.5rem;
+  background-color: var(--bg-surface-elevated);
+  border-bottom: 1px solid var(--border-subtle);
 }
 
 .chart-header h2 {
   margin: 0;
-  text-align: left;
+  font-size: 1.125rem;
+  font-weight: 500;
+  color: var(--text-primary);
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.chart-header h2::before {
+  content: '📊';
+  font-size: 1rem;
 }
 
 .tag-selector {
-  padding: 0.5rem;
-  font-size: 1rem;
+  padding: 0.5rem 0.75rem;
+  font-size: 0.875rem;
   border-radius: 4px;
-  border: 1px solid #646cff;
-  background-color: #242424;
-  color: white;
+  border: 1px solid var(--border-medium);
+  background-color: var(--bg-surface);
+  color: var(--text-primary);
+  cursor: pointer;
 }
 
+/* ============================================
+   Chart Cards List
+   ============================================ */
+
+.charts-list {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+  padding: 1.5rem;
+}
+
+.collapsible-chart {
+  background-color: var(--bg-surface-elevated);
+  border-radius: 8px;
+  border: 1px solid var(--border-subtle);
+  overflow: hidden;
+  transition: box-shadow 0.2s ease;
+}
+
+.collapsible-chart:hover {
+  box-shadow: var(--shadow-md);
+}
+
+.chart-title-bar {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 1rem 1.25rem;
+  cursor: pointer;
+  background-color: var(--bg-surface);
+  border-left: 4px solid var(--primary-orange);
+  transition: background-color 0.2s ease;
+}
+
+.chart-title-bar:hover {
+  background-color: var(--bg-surface-hover);
+}
+
+.collapse-icon {
+  font-size: 0.625rem;
+  color: var(--text-muted);
+  width: 1rem;
+  flex-shrink: 0;
+  transition: transform 0.2s ease;
+}
+
+.chart-title-bar .chart-title {
+  margin: 0;
+  font-size: 0.875rem;
+  font-weight: 500;
+  color: var(--text-primary);
+}
+
+.chart-content {
+  padding: 1.25rem;
+  background-color: var(--bg-surface-elevated);
+}
+
+/* ============================================
+   Charts Grid Layout
+   ============================================ */
+
+.charts-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(400px, 1fr));
+  gap: 1.5rem;
+  padding: 1.5rem;
+}
+
+.individual-chart {
+  background-color: var(--bg-surface-elevated);
+  border-radius: 8px;
+  padding: 1.25rem;
+  border: 1px solid var(--border-subtle);
+  transition: box-shadow 0.2s ease;
+}
+
+.individual-chart:hover {
+  box-shadow: var(--shadow-md);
+}
+
+.chart-title {
+  margin: 0 0 1rem 0;
+  font-size: 0.875rem;
+  font-weight: 500;
+  color: var(--primary-orange);
+  text-align: left;
+}
+
+/* ============================================
+   Loading & Error States
+   ============================================ */
+
 .loading, .error {
-  padding: 2rem;
-  font-size: 1.2rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 3rem;
+  font-size: 1rem;
+  color: var(--text-secondary);
+}
+
+.loading::before {
+  content: '⏳';
+  margin-right: 0.5rem;
 }
 
 .error {
-  color: #ff6b6b;
+  color: #ef5350;
 }
 
-.histogram-info {
-  margin-top: 1rem;
-  display: flex;
-  gap: 2rem;
-  justify-content: center;
-  color: #888;
+.error::before {
+  content: '⚠️';
+  margin-right: 0.5rem;
 }
 
-/* Multi-tag selector styles */
+.no-selection {
+  text-align: center;
+  color: var(--text-muted);
+  padding: 3rem;
+  font-style: italic;
+}
+
+/* ============================================
+   Tag Selector Styles
+   ============================================ */
+
 .tag-controls {
   display: flex;
   gap: 0.5rem;
 }
 
 .tag-control-btn {
-  padding: 0.25rem 0.75rem;
-  font-size: 0.85rem;
-  border: 1px solid #646cff;
+  padding: 0.375rem 0.75rem;
+  font-size: 0.75rem;
+  font-weight: 500;
+  border: 1px solid var(--primary-orange);
   background-color: transparent;
-  color: #646cff;
+  color: var(--primary-orange);
   border-radius: 4px;
   cursor: pointer;
-  transition: all 0.2s;
+  transition: all 0.2s ease;
 }
 
 .tag-control-btn:hover {
-  background-color: #646cff;
+  background-color: var(--primary-orange);
   color: white;
 }
 
@@ -207,27 +459,28 @@
   display: flex;
   flex-wrap: wrap;
   gap: 0.5rem;
-  margin-bottom: 1.5rem;
-  justify-content: flex-start;
+  margin-bottom: 1rem;
   padding: 1rem;
-  background-color: rgba(255, 255, 255, 0.05);
-  border-radius: 8px;
+  background-color: var(--bg-surface);
+  border-radius: 6px;
+  border: 1px solid var(--border-subtle);
 }
 
 .tag-checkbox {
   display: flex;
   align-items: center;
   gap: 0.5rem;
-  padding: 0.4rem 0.8rem;
+  padding: 0.375rem 0.75rem;
   border-radius: 4px;
-  border: 2px solid;
+  border: 1px solid var(--border-medium);
   cursor: pointer;
-  transition: all 0.2s;
-  background-color: rgba(0, 0, 0, 0.2);
+  transition: all 0.2s ease;
+  background-color: var(--bg-surface-elevated);
 }
 
 .tag-checkbox:hover {
-  background-color: rgba(255, 255, 255, 0.1);
+  border-color: var(--primary-orange);
+  background-color: var(--bg-surface-hover);
 }
 
 .tag-checkbox input[type="checkbox"] {
@@ -235,118 +488,55 @@
 }
 
 .tag-color-indicator {
-  width: 12px;
-  height: 12px;
+  width: 10px;
+  height: 10px;
   border-radius: 2px;
   flex-shrink: 0;
 }
 
 .tag-label {
-  font-size: 0.9rem;
+  font-size: 0.8125rem;
   white-space: nowrap;
+  color: var(--text-primary);
 }
 
-/* Checked state - uses class for better browser compatibility */
 .tag-checkbox.tag-checked {
-  background-color: rgba(255, 255, 255, 0.15);
+  background-color: rgba(255, 111, 0, 0.15);
+  border-color: var(--primary-orange);
 }
 
-/* Unchecked state */
 .tag-checkbox.tag-unchecked .tag-color-indicator {
-  opacity: 0.3;
+  opacity: 0.4;
 }
 
 .tag-checkbox.tag-unchecked .tag-label {
-  opacity: 0.5;
+  opacity: 0.6;
 }
 
-/* Grid layout for individual charts */
-.charts-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(400px, 1fr));
-  gap: 1.5rem;
+/* ============================================
+   Histogram Info Styles
+   ============================================ */
+
+.histogram-info {
   margin-top: 1rem;
-}
-
-/* List layout for collapsible charts */
-.charts-list {
   display: flex;
-  flex-direction: column;
-  gap: 1rem;
-  margin-top: 1rem;
+  gap: 2rem;
+  justify-content: center;
+  color: var(--text-muted);
+  font-size: 0.8125rem;
 }
 
-.collapsible-chart {
-  background-color: rgba(255, 255, 255, 0.03);
-  border-radius: 8px;
-  border: 1px solid rgba(255, 255, 255, 0.1);
-  overflow: hidden;
-}
-
-.chart-title-bar {
-  display: flex;
-  align-items: center;
-  gap: 0.75rem;
-  padding: 0.75rem 1rem;
-  cursor: pointer;
-  background-color: rgba(255, 255, 255, 0.05);
-  border-left: 4px solid;
-  transition: background-color 0.2s;
-}
-
-.chart-title-bar:hover {
-  background-color: rgba(255, 255, 255, 0.1);
-}
-
-.collapse-icon {
-  font-size: 0.75rem;
-  color: #888;
-  width: 1rem;
-  flex-shrink: 0;
-}
-
-.chart-title-bar .chart-title {
-  margin: 0;
-  font-size: 1rem;
-  font-weight: 600;
-}
-
-.chart-content {
-  padding: 1rem;
-}
-
-.individual-chart {
-  background-color: rgba(255, 255, 255, 0.03);
-  border-radius: 8px;
-  padding: 1rem;
-  border: 1px solid rgba(255, 255, 255, 0.1);
-}
-
-.chart-title {
-  margin: 0 0 0.75rem 0;
-  font-size: 1rem;
-  font-weight: 600;
-  text-align: left;
-}
-
-.no-selection {
-  text-align: center;
-  color: #888;
-  padding: 2rem;
-  font-style: italic;
-}
-
-/* Single histogram info (below each chart) */
 .histogram-info-single {
   display: flex;
   gap: 1.5rem;
   justify-content: center;
-  margin-top: 0.5rem;
-  color: #888;
-  font-size: 0.85rem;
+  margin-top: 0.75rem;
+  padding-top: 0.75rem;
+  border-top: 1px solid var(--border-subtle);
+  color: var(--text-muted);
+  font-size: 0.8125rem;
 }
 
-/* Multi-histogram info (deprecated - kept for compatibility) */
 .histogram-info-multi {
   margin-top: 1rem;
   display: flex;
@@ -398,113 +588,108 @@
   flex-direction: column;
   gap: 0.25rem;
   padding: 0.75rem 1rem;
-  border-left: 3px solid;
-  background-color: rgba(255, 255, 255, 0.05);
+  border-left: 3px solid var(--primary-orange);
+  background-color: var(--bg-surface);
   border-radius: 0 4px 4px 0;
-  font-size: 0.9rem;
-  color: #888;
+  font-size: 0.8125rem;
+  color: var(--text-muted);
 }
 
 .histogram-info-item strong {
-  color: white;
+  color: var(--text-primary);
   margin-bottom: 0.25rem;
 }
 
+/* ============================================
+   Footer
+   ============================================ */
+
 .app-footer {
-  margin-top: 3rem;
-  padding-top: 2rem;
-  border-top: 1px solid #333;
-  color: #888;
+  padding: 1rem 2rem;
+  text-align: center;
+  border-top: 1px solid var(--border-subtle);
+  background-color: var(--bg-secondary);
+  color: var(--text-muted);
+  font-size: 0.8125rem;
 }
+
+.app-footer p {
+  margin: 0;
+}
+
+/* ============================================
+   Light Mode Support
+   ============================================ */
 
 @media (prefers-color-scheme: light) {
   :root {
-    color: #213547;
-    background-color: #ffffff;
+    --bg-primary: #fafafa;
+    --bg-secondary: #ffffff;
+    --bg-surface: #f5f5f5;
+    --bg-surface-hover: #eeeeee;
+    --bg-surface-elevated: #ffffff;
+    
+    --text-primary: #212121;
+    --text-secondary: #616161;
+    --text-muted: #9e9e9e;
+    
+    --chart-grid: #e0e0e0;
+    
+    --border-subtle: rgba(0, 0, 0, 0.08);
+    --border-medium: rgba(0, 0, 0, 0.15);
+    
+    --shadow-sm: 0 1px 3px rgba(0, 0, 0, 0.1);
+    --shadow-md: 0 4px 6px rgba(0, 0, 0, 0.1);
+    --shadow-lg: 0 10px 25px rgba(0, 0, 0, 0.15);
+    
+    color-scheme: light;
+  }
+}
+
+/* ============================================
+   Responsive Design
+   ============================================ */
+
+@media (max-width: 768px) {
+  .app-header {
+    flex-direction: column;
+    gap: 1rem;
+    padding: 1rem;
   }
   
-  .app-nav button {
-    border-color: #747bff;
-    color: #747bff;
+  .header-brand .tagline {
+    display: none;
   }
   
-  .app-nav button:hover,
-  .app-nav button.active {
-    background-color: #747bff;
+  .refresh-controls {
+    flex-wrap: wrap;
+    justify-content: center;
   }
   
-  .chart-container {
-    background-color: #f9f9f9;
+  .app-sidebar {
+    position: fixed;
+    left: -200px;
+    top: 0;
+    height: 100vh;
+    z-index: 200;
+    transition: left 0.3s ease;
   }
   
-  .tag-selector {
-    background-color: white;
-    color: #213547;
+  .app-sidebar.open {
+    left: 0;
   }
   
-  .interval-selector select {
-    background-color: white;
-    color: #213547;
+  .app-main {
+    padding: 1rem;
   }
   
-  .refresh-button {
-    border-color: #45a049;
-    color: #45a049;
+  .charts-grid {
+    grid-template-columns: 1fr;
+    padding: 1rem;
   }
   
-  .refresh-button:hover {
-    background-color: #45a049;
-  }
-
-  .tag-control-btn {
-    border-color: #747bff;
-    color: #747bff;
-  }
-  
-  .tag-control-btn:hover {
-    background-color: #747bff;
-  }
-
-  .tag-selector-multi {
-    background-color: rgba(0, 0, 0, 0.05);
-  }
-
-  .tag-checkbox {
-    background-color: rgba(255, 255, 255, 0.5);
-  }
-
-  .tag-checkbox:hover {
-    background-color: rgba(0, 0, 0, 0.1);
-  }
-
-  .tag-checkbox.tag-checked {
-    background-color: rgba(0, 0, 0, 0.08);
-  }
-
-  .individual-chart {
-    background-color: rgba(0, 0, 0, 0.03);
-    border-color: rgba(0, 0, 0, 0.1);
-  }
-
-  .collapsible-chart {
-    background-color: rgba(0, 0, 0, 0.03);
-    border-color: rgba(0, 0, 0, 0.1);
-  }
-
-  .chart-title-bar {
-    background-color: rgba(0, 0, 0, 0.05);
-  }
-
-  .chart-title-bar:hover {
-    background-color: rgba(0, 0, 0, 0.1);
-  }
-
-  .histogram-info-item {
-    background-color: rgba(0, 0, 0, 0.05);
-  }
-
-  .histogram-info-item strong {
-    color: #213547;
+  .charts-list {
+    padding: 1rem;
   }
 
   .histogram-run-info {
