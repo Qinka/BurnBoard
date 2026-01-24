@@ -181,6 +181,109 @@
   color: #888;
 }
 
+/* Multi-tag selector styles */
+.tag-controls {
+  display: flex;
+  gap: 0.5rem;
+}
+
+.tag-control-btn {
+  padding: 0.25rem 0.75rem;
+  font-size: 0.85rem;
+  border: 1px solid #646cff;
+  background-color: transparent;
+  color: #646cff;
+  border-radius: 4px;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.tag-control-btn:hover {
+  background-color: #646cff;
+  color: white;
+}
+
+.tag-selector-multi {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  margin-bottom: 1.5rem;
+  justify-content: flex-start;
+  padding: 1rem;
+  background-color: rgba(255, 255, 255, 0.05);
+  border-radius: 8px;
+}
+
+.tag-checkbox {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.4rem 0.8rem;
+  border-radius: 4px;
+  border: 2px solid;
+  cursor: pointer;
+  transition: all 0.2s;
+  background-color: rgba(0, 0, 0, 0.2);
+}
+
+.tag-checkbox:hover {
+  background-color: rgba(255, 255, 255, 0.1);
+}
+
+.tag-checkbox input[type="checkbox"] {
+  display: none;
+}
+
+.tag-color-indicator {
+  width: 12px;
+  height: 12px;
+  border-radius: 2px;
+  flex-shrink: 0;
+}
+
+.tag-label {
+  font-size: 0.9rem;
+  white-space: nowrap;
+}
+
+.tag-checkbox:has(input:checked) {
+  background-color: rgba(255, 255, 255, 0.15);
+}
+
+.tag-checkbox:has(input:not(:checked)) .tag-color-indicator {
+  opacity: 0.3;
+}
+
+.tag-checkbox:has(input:not(:checked)) .tag-label {
+  opacity: 0.5;
+}
+
+/* Multi-histogram info */
+.histogram-info-multi {
+  margin-top: 1rem;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 1rem;
+  justify-content: center;
+}
+
+.histogram-info-item {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  padding: 0.75rem 1rem;
+  border-left: 3px solid;
+  background-color: rgba(255, 255, 255, 0.05);
+  border-radius: 0 4px 4px 0;
+  font-size: 0.9rem;
+  color: #888;
+}
+
+.histogram-info-item strong {
+  color: white;
+  margin-bottom: 0.25rem;
+}
+
 .app-footer {
   margin-top: 3rem;
   padding-top: 2rem;
@@ -225,5 +328,38 @@
   
   .refresh-button:hover {
     background-color: #45a049;
+  }
+
+  .tag-control-btn {
+    border-color: #747bff;
+    color: #747bff;
+  }
+  
+  .tag-control-btn:hover {
+    background-color: #747bff;
+  }
+
+  .tag-selector-multi {
+    background-color: rgba(0, 0, 0, 0.05);
+  }
+
+  .tag-checkbox {
+    background-color: rgba(255, 255, 255, 0.5);
+  }
+
+  .tag-checkbox:hover {
+    background-color: rgba(0, 0, 0, 0.1);
+  }
+
+  .tag-checkbox:has(input:checked) {
+    background-color: rgba(0, 0, 0, 0.08);
+  }
+
+  .histogram-info-item {
+    background-color: rgba(0, 0, 0, 0.05);
+  }
+
+  .histogram-info-item strong {
+    color: #213547;
   }
 }
