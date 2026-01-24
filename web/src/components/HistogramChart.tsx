@@ -1,4 +1,4 @@
-import { useEffect, useState, useImperativeHandle, forwardRef, useCallback } from 'react';
+import { useEffect, useState, useImperativeHandle, forwardRef, useCallback, useMemo } from 'react';
 import {
   BarChart,
   Bar,
@@ -31,6 +31,11 @@ interface MultiRunHistogramChartData {
   [runName: string]: number | string | undefined;
 }
 
+interface TagGroup {
+  name: string;
+  tags: string[];
+}
+
 export interface HistogramChartHandle {
   refresh: () => void;
 }
@@ -53,13 +58,43 @@ const getRunColor = (index: number): string => {
   return RUN_COLORS[index % RUN_COLORS.length];
 };
 
+// Helper function to group tags by "/" prefix
+const groupTagsByPrefix = (tags: string[]): TagGroup[] => {
+  const groupMap = new Map<string, string[]>();
+
+  tags.forEach(tag => {
+    const slashIndex = tag.indexOf('/');
+    if (slashIndex > 0) {
+      // Has a prefix, group by it
+      const prefix = tag.substring(0, slashIndex);
+      const existing = groupMap.get(prefix) || [];
+      existing.push(tag);
+      groupMap.set(prefix, existing);
+    } else {
+      // No prefix, use tag itself as group
+      const existing = groupMap.get(tag) || [];
+      existing.push(tag);
+      groupMap.set(tag, existing);
+    }
+  });
+
+  // Convert to array and sort
+  return Array.from(groupMap.entries())
+    .map(([name, tags]) => ({ name, tags: tags.sort() }))
+    .sort((a, b) => a.name.localeCompare(b.name));
+};
+
 const HistogramChart = forwardRef<HistogramChartHandle>(function HistogramChart(_props, ref) {
   const [data, setData] = useState<HistogramData[]>([]);
   const [tags, setTags] = useState<string[]>([]);
   const [runs, setRuns] = useState<string[]>([]);
   const [collapsedTags, setCollapsedTags] = useState<Set<string>>(new Set());
+  const [collapsedGroups, setCollapsedGroups] = useState<Set<string>>(new Set());
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+
+  // Group tags by "/" prefix
+  const tagGroups = useMemo(() => groupTagsByPrefix(tags), [tags]);
 
   const fetchHistograms = useCallback(async () => {
     try {
@@ -106,6 +141,26 @@ const HistogramChart = forwardRef<HistogramChartHandle>(function HistogramChart(
       }
       return newSet;
     });
+  };
+
+  const toggleGroupCollapse = (groupName: string) => {
+    setCollapsedGroups(prev => {
+      const newSet = new Set(prev);
+      if (newSet.has(groupName)) {
+        newSet.delete(groupName);
+      } else {
+        newSet.add(groupName);
+      }
+      return newSet;
+    });
+  };
+
+  // Get the short name for a tag (part after the group prefix)
+  const getShortTagName = (tag: string, groupName: string): string => {
+    if (tag.startsWith(groupName + '/')) {
+      return tag.substring(groupName.length + 1);
+    }
+    return tag;
   };
 
   // Get the latest histogram for a specific tag and run
@@ -183,76 +238,114 @@ const HistogramChart = forwardRef<HistogramChartHandle>(function HistogramChart(
           </div>
         )}
       </div>
-      {/* Display each histogram in its own collapsible chart */}
+      {/* Display histograms grouped by "/" prefix */}
       <div className="charts-list">
-        {tags.map((tag) => {
-          const isCollapsed = collapsedTags.has(tag);
-          const { chartData, tagRuns, histograms } = getChartDataForTag(tag);
-          if (tagRuns.length === 0) return null;
+        {tagGroups.map((group) => {
+          const isGroupCollapsed = collapsedGroups.has(group.name);
+          const hasMultipleTags = group.tags.length > 1 || group.tags[0] !== group.name;
 
           return (
-            <div key={tag} className="collapsible-chart">
-              <div
-                className="chart-title-bar"
-                onClick={() => toggleCollapse(tag)}
-                style={{ borderLeftColor: getRunColor(0) }}
-                role="button"
-                aria-expanded={!isCollapsed}
-                aria-controls={`histogram-content-${tag.replace(/\//g, '-')}`}
-                tabIndex={0}
-                onKeyDown={(e) => {
-                  if (e.key === 'Enter' || e.key === ' ') {
-                    e.preventDefault();
-                    toggleCollapse(tag);
-                  }
-                }}
-              >
-                <span className="collapse-icon" aria-hidden="true">{isCollapsed ? '▶' : '▼'}</span>
-                <h3 className="chart-title">
-                  {tag}
-                </h3>
-              </div>
-              {!isCollapsed && (
-                <div className="chart-content" id={`histogram-content-${tag.replace(/\//g, '-')}`}>
-                  <ResizableChart
-                    tag={tag}
-                    defaultHeight={250}
-                    minHeight={100}
-                    maxHeight={600}
-                  >
-                    {(height) => (
-                      <ResponsiveContainer width="100%" height={height}>
-                        <BarChart data={chartData}>
-                          <CartesianGrid strokeDasharray="3 3" />
-                          <XAxis dataKey="name" />
-                          <YAxis />
-                          <Tooltip />
-                          {tagRuns.length > 1 && <Legend />}
-                          {tagRuns.map((run) => (
-                            <Bar
-                              key={run}
-                              dataKey={run}
-                              fill={getRunColor(runs.indexOf(run))}
-                              name={run}
-                            />
-                          ))}
-                        </BarChart>
-                      </ResponsiveContainer>
-                    )}
-                  </ResizableChart>
-                  <div className="histogram-info-multi">
-                    {tagRuns.map((run) => {
-                      const histogram = histograms.get(run);
-                      if (!histogram) return null;
-                      return (
-                        <div key={run} className="histogram-run-info" style={{ borderLeftColor: getRunColor(runs.indexOf(run)) }}>
-                          <strong>{run}:</strong>
-                          <span>Count: {histogram.num}</span>
-                          <span>Sum: {histogram.sum.toFixed(2)}</span>
+            <div key={group.name} className="metric-group">
+              {hasMultipleTags && (
+                <div
+                  className="group-header"
+                  onClick={() => toggleGroupCollapse(group.name)}
+                  role="button"
+                  aria-expanded={!isGroupCollapsed}
+                  tabIndex={0}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter' || e.key === ' ') {
+                      e.preventDefault();
+                      toggleGroupCollapse(group.name);
+                    }
+                  }}
+                >
+                  <span className="collapse-icon" aria-hidden="true">{isGroupCollapsed ? '▶' : '▼'}</span>
+                  <h3 className="group-title">{group.name}</h3>
+                  <span className="group-count">({group.tags.length})</span>
+                </div>
+              )}
+
+              {!isGroupCollapsed && (
+                <div className={hasMultipleTags ? "group-content" : ""}>
+                  {group.tags.map((tag) => {
+                    const isCollapsed = collapsedTags.has(tag);
+                    const { chartData, tagRuns, histograms } = getChartDataForTag(tag);
+                    if (tagRuns.length === 0) return null;
+
+                    const displayName = hasMultipleTags ? getShortTagName(tag, group.name) : tag;
+                    const titleColor = tagRuns.length > 0
+                      ? getRunColor(runs.indexOf(tagRuns[0]))
+                      : getRunColor(0);
+
+                    return (
+                      <div key={tag} className="collapsible-chart">
+                        <div
+                          className="chart-title-bar"
+                          onClick={() => toggleCollapse(tag)}
+                          style={{ borderLeftColor: titleColor }}
+                          role="button"
+                          aria-expanded={!isCollapsed}
+                          aria-controls={`histogram-content-${tag.replace(/\//g, '-')}`}
+                          tabIndex={0}
+                          onKeyDown={(e) => {
+                            if (e.key === 'Enter' || e.key === ' ') {
+                              e.preventDefault();
+                              toggleCollapse(tag);
+                            }
+                          }}
+                        >
+                          <span className="collapse-icon" aria-hidden="true">{isCollapsed ? '▶' : '▼'}</span>
+                          <h3 className="chart-title">
+                            {displayName}
+                          </h3>
                         </div>
-                      );
-                    })}
-                  </div>
+                        {!isCollapsed && (
+                          <div className="chart-content" id={`histogram-content-${tag.replace(/\//g, '-')}`}>
+                            <ResizableChart
+                              tag={tag}
+                              defaultHeight={250}
+                              minHeight={100}
+                              maxHeight={600}
+                            >
+                              {(height) => (
+                                <ResponsiveContainer width="100%" height={height}>
+                                  <BarChart data={chartData}>
+                                    <CartesianGrid strokeDasharray="3 3" />
+                                    <XAxis dataKey="name" />
+                                    <YAxis />
+                                    <Tooltip />
+                                    {tagRuns.length > 1 && <Legend />}
+                                    {tagRuns.map((run) => (
+                                      <Bar
+                                        key={run}
+                                        dataKey={run}
+                                        fill={getRunColor(runs.indexOf(run))}
+                                        name={run}
+                                      />
+                                    ))}
+                                  </BarChart>
+                                </ResponsiveContainer>
+                              )}
+                            </ResizableChart>
+                            <div className="histogram-info-multi">
+                              {tagRuns.map((run) => {
+                                const histogram = histograms.get(run);
+                                if (!histogram) return null;
+                                return (
+                                  <div key={run} className="histogram-run-info" style={{ borderLeftColor: getRunColor(runs.indexOf(run)) }}>
+                                    <strong>{run}:</strong>
+                                    <span>Count: {histogram.num}</span>
+                                    <span>Sum: {histogram.sum.toFixed(2)}</span>
+                                  </div>
+                                );
+                              })}
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })}
                 </div>
               )}
             </div>
