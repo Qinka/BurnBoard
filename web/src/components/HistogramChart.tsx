@@ -31,19 +31,8 @@ export interface HistogramChartHandle {
   refresh: () => void;
 }
 
-// Color palette for multiple metrics (TensorBoard-like colors)
-const COLORS = [
-  '#1f77b4', // blue
-  '#ff7f0e', // orange
-  '#2ca02c', // green
-  '#d62728', // red
-  '#9467bd', // purple
-  '#8c564b', // brown
-  '#e377c2', // pink
-  '#7f7f7f', // gray
-  '#bcbd22', // olive
-  '#17becf', // cyan
-];
+// Unified color for all metrics
+const CHART_COLOR = '#1f77b4'; // blue
 
 const HistogramChart = forwardRef<HistogramChartHandle>(function HistogramChart(_props, ref) {
   const [data, setData] = useState<HistogramData[]>([]);
@@ -129,7 +118,7 @@ const HistogramChart = forwardRef<HistogramChartHandle>(function HistogramChart(
       </div>
       {/* Display each histogram in its own collapsible chart */}
       <div className="charts-list">
-        {tags.map((tag, index) => {
+        {tags.map((tag) => {
           const isCollapsed = collapsedTags.has(tag);
           const latestHistogram = getLatestHistogramForTag(tag);
           if (!latestHistogram) return null;
@@ -140,7 +129,7 @@ const HistogramChart = forwardRef<HistogramChartHandle>(function HistogramChart(
               <div 
                 className="chart-title-bar" 
                 onClick={() => toggleCollapse(tag)}
-                style={{ borderLeftColor: COLORS[index % COLORS.length] }}
+                style={{ borderLeftColor: CHART_COLOR }}
                 role="button"
                 aria-expanded={!isCollapsed}
                 aria-controls={`histogram-content-${tag.replace(/\//g, '-')}`}
@@ -153,7 +142,7 @@ const HistogramChart = forwardRef<HistogramChartHandle>(function HistogramChart(
                 }}
               >
                 <span className="collapse-icon" aria-hidden="true">{isCollapsed ? '▶' : '▼'}</span>
-                <h3 className="chart-title" style={{ color: COLORS[index % COLORS.length] }}>
+                <h3 className="chart-title" style={{ color: CHART_COLOR }}>
                   {tag}
                 </h3>
               </div>
@@ -167,7 +156,7 @@ const HistogramChart = forwardRef<HistogramChartHandle>(function HistogramChart(
                       <Tooltip />
                       <Bar 
                         dataKey="value" 
-                        fill={COLORS[index % COLORS.length]} 
+                        fill={CHART_COLOR} 
                       />
                     </BarChart>
                   </ResponsiveContainer>

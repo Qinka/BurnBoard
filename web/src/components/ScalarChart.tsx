@@ -28,19 +28,8 @@ export interface ScalarChartHandle {
   refresh: () => void;
 }
 
-// Color palette for multiple metrics (TensorBoard-like colors)
-const COLORS = [
-  '#1f77b4', // blue
-  '#ff7f0e', // orange
-  '#2ca02c', // green
-  '#d62728', // red
-  '#9467bd', // purple
-  '#8c564b', // brown
-  '#e377c2', // pink
-  '#7f7f7f', // gray
-  '#bcbd22', // olive
-  '#17becf', // cyan
-];
+// Unified color for all metrics
+const CHART_COLOR = '#1f77b4'; // blue
 
 const ScalarChart = forwardRef<ScalarChartHandle>(function ScalarChart(_props, ref) {
   const [data, setData] = useState<ScalarData[]>([]);
@@ -118,7 +107,7 @@ const ScalarChart = forwardRef<ScalarChartHandle>(function ScalarChart(_props, r
       </div>
       {/* Display each metric in its own collapsible chart */}
       <div className="charts-list">
-        {tags.map((tag, index) => {
+        {tags.map((tag) => {
           const isCollapsed = collapsedTags.has(tag);
           const chartData = getChartDataForTag(tag);
           return (
@@ -126,7 +115,7 @@ const ScalarChart = forwardRef<ScalarChartHandle>(function ScalarChart(_props, r
               <div 
                 className="chart-title-bar" 
                 onClick={() => toggleCollapse(tag)}
-                style={{ borderLeftColor: COLORS[index % COLORS.length] }}
+                style={{ borderLeftColor: CHART_COLOR }}
                 role="button"
                 aria-expanded={!isCollapsed}
                 aria-controls={`chart-content-${tag.replace(/\//g, '-')}`}
@@ -139,7 +128,7 @@ const ScalarChart = forwardRef<ScalarChartHandle>(function ScalarChart(_props, r
                 }}
               >
                 <span className="collapse-icon" aria-hidden="true">{isCollapsed ? '▶' : '▼'}</span>
-                <h3 className="chart-title" style={{ color: COLORS[index % COLORS.length] }}>
+                <h3 className="chart-title" style={{ color: CHART_COLOR }}>
                   {tag}
                 </h3>
               </div>
@@ -159,7 +148,7 @@ const ScalarChart = forwardRef<ScalarChartHandle>(function ScalarChart(_props, r
                       <Line 
                         type="monotone" 
                         dataKey="value"
-                        stroke={COLORS[index % COLORS.length]}
+                        stroke={CHART_COLOR}
                         name={tag}
                         dot={{ r: 2 }}
                         connectNulls
