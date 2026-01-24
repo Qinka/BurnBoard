@@ -63,8 +63,9 @@ This document outlines the TensorBoard-inspired UI redesign for BurnBoard.
 - **Primary Orange Dark**: `#E65100`
 
 ### Background Colors
-- **Dark Mode Background**: `#1E1E1E` (darker, more professional)
-- **Dark Mode Surface**: `#2D2D2D` (for cards)
+- **Dark Mode Background**: `#1a1a1a` (main background)
+- **Dark Mode Secondary**: `#242424` (header, footer)
+- **Dark Mode Surface**: `#2d2d2d` (for cards)
 - **Dark Mode Surface Hover**: `#383838`
 - **Light Mode Background**: `#FAFAFA`
 - **Light Mode Surface**: `#FFFFFF`
