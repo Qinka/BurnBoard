@@ -127,14 +127,24 @@ const ScalarChart = forwardRef<ScalarChartHandle>(function ScalarChart(_props, r
                 className="chart-title-bar" 
                 onClick={() => toggleCollapse(tag)}
                 style={{ borderLeftColor: COLORS[index % COLORS.length] }}
+                role="button"
+                aria-expanded={!isCollapsed}
+                aria-controls={`chart-content-${tag.replace(/\//g, '-')}`}
+                tabIndex={0}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter' || e.key === ' ') {
+                    e.preventDefault();
+                    toggleCollapse(tag);
+                  }
+                }}
               >
-                <span className="collapse-icon">{isCollapsed ? '▶' : '▼'}</span>
+                <span className="collapse-icon" aria-hidden="true">{isCollapsed ? '▶' : '▼'}</span>
                 <h3 className="chart-title" style={{ color: COLORS[index % COLORS.length] }}>
                   {tag}
                 </h3>
               </div>
               {!isCollapsed && (
-                <div className="chart-content">
+                <div className="chart-content" id={`chart-content-${tag.replace(/\//g, '-')}`}>
                   <ResponsiveContainer width="100%" height={250}>
                     <LineChart data={chartData}>
                       <CartesianGrid strokeDasharray="3 3" />
