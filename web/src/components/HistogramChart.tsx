@@ -24,8 +24,8 @@ interface HistogramApiResponse {
 }
 
 interface ChartData {
-  name: string;
-  [key: string]: number | string; // Dynamic keys for each tag
+  name: string; // Statistic name: 'Min', 'Max', or 'Mean'
+  [key: string]: number | string; // Dynamic keys: tag names map to their statistic values
 }
 
 export interface HistogramChartHandle {
@@ -112,10 +112,8 @@ const HistogramChart = forwardRef<HistogramChartHandle>(function HistogramChart(
     setSelectedTags(new Set());
   };
 
-  const getChartData = (): ChartData[] => {
-    if (selectedTags.size === 0) return [];
-    
-    // Get the latest histogram for each selected tag and create comparison data
+  // Compute latest histograms for each selected tag (used by both chart and info display)
+  const getLatestHistograms = (): Map<string, HistogramData> => {
     const latestHistograms = new Map<string, HistogramData>();
     
     data
@@ -126,6 +124,12 @@ const HistogramChart = forwardRef<HistogramChartHandle>(function HistogramChart(
           latestHistograms.set(item.tag, item);
         }
       });
+    
+    return latestHistograms;
+  };
+
+  const getChartData = (latestHistograms: Map<string, HistogramData>): ChartData[] => {
+    if (selectedTags.size === 0) return [];
     
     // Create chart data with Min, Max, Mean for each selected tag
     const chartData: ChartData[] = [
@@ -151,7 +155,8 @@ const HistogramChart = forwardRef<HistogramChartHandle>(function HistogramChart(
     return <div className="error">Error: {error}</div>;
   }
 
-  const chartData = getChartData();
+  const latestHistograms = getLatestHistograms();
+  const chartData = getChartData(latestHistograms);
   const selectedTagsArray = Array.from(selectedTags);
 
   return (
@@ -164,20 +169,27 @@ const HistogramChart = forwardRef<HistogramChartHandle>(function HistogramChart(
         </div>
       </div>
       <div className="tag-selector-multi">
-        {tags.map((tag, index) => (
-          <label key={tag} className="tag-checkbox" style={{ borderColor: COLORS[index % COLORS.length] }}>
-            <input
-              type="checkbox"
-              checked={selectedTags.has(tag)}
-              onChange={() => toggleTag(tag)}
-            />
-            <span 
-              className="tag-color-indicator" 
-              style={{ backgroundColor: COLORS[index % COLORS.length] }}
-            />
-            <span className="tag-label">{tag}</span>
-          </label>
-        ))}
+        {tags.map((tag, index) => {
+          const isChecked = selectedTags.has(tag);
+          return (
+            <label 
+              key={tag} 
+              className={`tag-checkbox ${isChecked ? 'tag-checked' : 'tag-unchecked'}`}
+              style={{ borderColor: COLORS[index % COLORS.length] }}
+            >
+              <input
+                type="checkbox"
+                checked={isChecked}
+                onChange={() => toggleTag(tag)}
+              />
+              <span 
+                className="tag-color-indicator" 
+                style={{ backgroundColor: COLORS[index % COLORS.length] }}
+              />
+              <span className="tag-label">{tag}</span>
+            </label>
+          );
+        })}
       </div>
       <ResponsiveContainer width="100%" height={400}>
         <BarChart data={chartData}>
@@ -201,11 +213,8 @@ const HistogramChart = forwardRef<HistogramChartHandle>(function HistogramChart(
       {selectedTagsArray.length > 0 && (
         <div className="histogram-info-multi">
           {selectedTagsArray.map((tag) => {
-            const tagData = data.filter(item => item.tag === tag);
-            if (tagData.length > 0) {
-              const latest = tagData.reduce((max, item) => 
-                item.step > max.step ? item : max
-              );
+            const latest = latestHistograms.get(tag);
+            if (latest) {
               const colorIndex = tags.indexOf(tag);
               return (
                 <div 
