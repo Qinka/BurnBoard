@@ -10,6 +10,7 @@ import {
   Legend,
 } from 'recharts';
 import ResizableChart from './ResizableChart';
+import { groupTagsByPrefix, getShortTagName } from '../utils/tagGrouping';
 
 interface HistogramData {
   tag: string;
@@ -29,11 +30,6 @@ interface HistogramApiResponse {
 interface MultiRunHistogramChartData {
   name: string; // Statistic name: 'Min', 'Max', or 'Mean'
   [runName: string]: number | string | undefined;
-}
-
-interface TagGroup {
-  name: string;
-  tags: string[];
 }
 
 export interface HistogramChartHandle {
@@ -56,32 +52,6 @@ const RUN_COLORS = [
 
 const getRunColor = (index: number): string => {
   return RUN_COLORS[index % RUN_COLORS.length];
-};
-
-// Helper function to group tags by "/" prefix
-const groupTagsByPrefix = (tags: string[]): TagGroup[] => {
-  const groupMap = new Map<string, string[]>();
-
-  tags.forEach(tag => {
-    const slashIndex = tag.indexOf('/');
-    if (slashIndex > 0) {
-      // Has a prefix, group by it
-      const prefix = tag.substring(0, slashIndex);
-      const existing = groupMap.get(prefix) || [];
-      existing.push(tag);
-      groupMap.set(prefix, existing);
-    } else {
-      // No prefix, use tag itself as group
-      const existing = groupMap.get(tag) || [];
-      existing.push(tag);
-      groupMap.set(tag, existing);
-    }
-  });
-
-  // Convert to array and sort
-  return Array.from(groupMap.entries())
-    .map(([name, tags]) => ({ name, tags: tags.sort() }))
-    .sort((a, b) => a.name.localeCompare(b.name));
 };
 
 const HistogramChart = forwardRef<HistogramChartHandle>(function HistogramChart(_props, ref) {
@@ -153,14 +123,6 @@ const HistogramChart = forwardRef<HistogramChartHandle>(function HistogramChart(
       }
       return newSet;
     });
-  };
-
-  // Get the short name for a tag (part after the group prefix)
-  const getShortTagName = (tag: string, groupName: string): string => {
-    if (tag.startsWith(groupName + '/')) {
-      return tag.substring(groupName.length + 1);
-    }
-    return tag;
   };
 
   // Get the latest histogram for a specific tag and run

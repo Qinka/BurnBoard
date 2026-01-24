@@ -10,6 +10,7 @@ import {
   Legend,
 } from 'recharts';
 import ResizableChart from './ResizableChart';
+import { groupTagsByPrefix, getShortTagName } from '../utils/tagGrouping';
 
 interface ScalarData {
   tag: string;
@@ -26,11 +27,6 @@ interface ScalarApiResponse {
 interface MultiRunChartData {
   step: number;
   [runName: string]: number | undefined;
-}
-
-interface TagGroup {
-  name: string;
-  tags: string[];
 }
 
 export interface ScalarChartHandle {
@@ -53,29 +49,6 @@ const RUN_COLORS = [
 
 const getRunColor = (index: number): string => {
   return RUN_COLORS[index % RUN_COLORS.length];
-};
-
-// Helper function to group tags by "/" prefix
-const groupTagsByPrefix = (tags: string[]): TagGroup[] => {
-  const groupMap = new Map<string, string[]>();
-
-  tags.forEach(tag => {
-    const slashIndex = tag.indexOf('/');
-    if (slashIndex > 0) {
-      const prefix = tag.substring(0, slashIndex);
-      const existing = groupMap.get(prefix) || [];
-      existing.push(tag);
-      groupMap.set(prefix, existing);
-    } else {
-      const existing = groupMap.get(tag) || [];
-      existing.push(tag);
-      groupMap.set(tag, existing);
-    }
-  });
-
-  return Array.from(groupMap.entries())
-    .map(([name, tags]) => ({ name, tags: tags.sort() }))
-    .sort((a, b) => a.name.localeCompare(b.name));
 };
 
 const ScalarChart = forwardRef<ScalarChartHandle>(function ScalarChart(_props, ref) {
@@ -149,19 +122,10 @@ const ScalarChart = forwardRef<ScalarChartHandle>(function ScalarChart(_props, r
     });
   };
 
-  // Get the short name for a tag (part after the group prefix)
-  const getShortTagName = (tag: string, groupName: string): string => {
-    if (tag.startsWith(groupName + '/')) {
-      return tag.substring(groupName.length + 1);
-    }
-    return tag;
-  };
-
   // Get chart data for a specific tag, with all runs combined by step
   const getChartDataForTag = (tag: string): MultiRunChartData[] => {
     const tagData = data.filter(item => item.tag === tag);
 
-    // Group data by step, with values for each run
     const stepMap = new Map<number, MultiRunChartData>();
 
     for (const item of tagData) {
@@ -172,7 +136,6 @@ const ScalarChart = forwardRef<ScalarChartHandle>(function ScalarChart(_props, r
       entry[item.run] = item.value;
     }
 
-    // Convert to array and sort by step
     return Array.from(stepMap.values()).sort((a, b) => a.step - b.step);
   };
 
