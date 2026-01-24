@@ -22,7 +22,7 @@ interface ScalarApiResponse {
 
 interface ChartDataPoint {
   step: number;
-  [key: string]: number; // Dynamic keys for each tag
+  [key: string]: number; // Dynamic keys: tag names map to their scalar values at this step
 }
 
 export interface ScalarChartHandle {
@@ -149,20 +149,27 @@ const ScalarChart = forwardRef<ScalarChartHandle>(function ScalarChart(_props, r
         </div>
       </div>
       <div className="tag-selector-multi">
-        {tags.map((tag, index) => (
-          <label key={tag} className="tag-checkbox" style={{ borderColor: COLORS[index % COLORS.length] }}>
-            <input
-              type="checkbox"
-              checked={selectedTags.has(tag)}
-              onChange={() => toggleTag(tag)}
-            />
-            <span 
-              className="tag-color-indicator" 
-              style={{ backgroundColor: COLORS[index % COLORS.length] }}
-            />
-            <span className="tag-label">{tag}</span>
-          </label>
-        ))}
+        {tags.map((tag, index) => {
+          const isChecked = selectedTags.has(tag);
+          return (
+            <label 
+              key={tag} 
+              className={`tag-checkbox ${isChecked ? 'tag-checked' : 'tag-unchecked'}`}
+              style={{ borderColor: COLORS[index % COLORS.length] }}
+            >
+              <input
+                type="checkbox"
+                checked={isChecked}
+                onChange={() => toggleTag(tag)}
+              />
+              <span 
+                className="tag-color-indicator" 
+                style={{ backgroundColor: COLORS[index % COLORS.length] }}
+              />
+              <span className="tag-label">{tag}</span>
+            </label>
+          );
+        })}
       </div>
       <ResponsiveContainer width="100%" height={400}>
         <LineChart data={chartData}>

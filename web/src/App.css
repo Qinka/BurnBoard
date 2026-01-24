@@ -246,15 +246,17 @@
   white-space: nowrap;
 }
 
-.tag-checkbox:has(input:checked) {
+/* Checked state - uses class for better browser compatibility */
+.tag-checkbox.tag-checked {
   background-color: rgba(255, 255, 255, 0.15);
 }
 
-.tag-checkbox:has(input:not(:checked)) .tag-color-indicator {
+/* Unchecked state */
+.tag-checkbox.tag-unchecked .tag-color-indicator {
   opacity: 0.3;
 }
 
-.tag-checkbox:has(input:not(:checked)) .tag-label {
+.tag-checkbox.tag-unchecked .tag-label {
   opacity: 0.5;
 }
 
@@ -351,7 +353,7 @@
     background-color: rgba(0, 0, 0, 0.1);
   }
 
-  .tag-checkbox:has(input:checked) {
+  .tag-checkbox.tag-checked {
     background-color: rgba(0, 0, 0, 0.08);
   }
 
