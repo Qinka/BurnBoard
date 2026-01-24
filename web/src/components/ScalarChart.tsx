@@ -10,12 +10,31 @@ import {
   ResponsiveContainer,
 } from 'recharts';
 
-const ScalarChart = forwardRef(function ScalarChart(props, ref) {
-  const [data, setData] = useState([]);
-  const [tags, setTags] = useState([]);
+interface ScalarData {
+  tag: string;
+  step: number;
+  value: number;
+}
+
+interface ScalarApiResponse {
+  data: ScalarData[];
+}
+
+interface ChartData {
+  step: number;
+  value: number;
+}
+
+export interface ScalarChartHandle {
+  refresh: () => void;
+}
+
+const ScalarChart = forwardRef<ScalarChartHandle>(function ScalarChart(_props, ref) {
+  const [data, setData] = useState<ScalarData[]>([]);
+  const [tags, setTags] = useState<string[]>([]);
   const [selectedTag, setSelectedTag] = useState('');
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState(null);
+  const [error, setError] = useState<string | null>(null);
 
   const fetchScalars = useCallback(async () => {
     try {
@@ -23,7 +42,7 @@ const ScalarChart = forwardRef(function ScalarChart(props, ref) {
       if (!response.ok) {
         throw new Error('Failed to fetch scalars');
       }
-      const result = await response.json();
+      const result: ScalarApiResponse = await response.json();
       
       // Extract unique tags
       const uniqueTags = [...new Set(result.data.map(item => item.tag))];
@@ -41,7 +60,7 @@ const ScalarChart = forwardRef(function ScalarChart(props, ref) {
       setLoading(false);
       setError(null);
     } catch (err) {
-      setError(err.message);
+      setError(err instanceof Error ? err.message : 'Unknown error');
       setLoading(false);
     }
   }, []);
@@ -56,7 +75,7 @@ const ScalarChart = forwardRef(function ScalarChart(props, ref) {
     refresh: fetchScalars
   }), [fetchScalars]);
 
-  const getChartData = () => {
+  const getChartData = (): ChartData[] => {
     if (!selectedTag) return [];
     return data
       .filter(item => item.tag === selectedTag)

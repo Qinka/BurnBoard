@@ -1,16 +1,16 @@
 import { useState, useRef, useEffect, useCallback } from 'react'
-import ScalarChart from './components/ScalarChart'
-import HistogramChart from './components/HistogramChart'
+import ScalarChart, { ScalarChartHandle } from './components/ScalarChart'
+import HistogramChart, { HistogramChartHandle } from './components/HistogramChart'
 import './App.css'
 
 function App() {
-  const [activeTab, setActiveTab] = useState('scalars')
+  const [activeTab, setActiveTab] = useState<'scalars' | 'histograms'>('scalars')
   const [autoRefresh, setAutoRefresh] = useState(true)
   const [refreshInterval, setRefreshInterval] = useState(5)
-  const [lastRefresh, setLastRefresh] = useState(null)
+  const [lastRefresh, setLastRefresh] = useState<Date | null>(null)
   
-  const scalarChartRef = useRef(null)
-  const histogramChartRef = useRef(null)
+  const scalarChartRef = useRef<ScalarChartHandle>(null)
+  const histogramChartRef = useRef<HistogramChartHandle>(null)
 
   const handleRefresh = useCallback(() => {
     if (activeTab === 'scalars' && scalarChartRef.current) {
