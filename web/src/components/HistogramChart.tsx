@@ -10,12 +10,34 @@ import {
   ResponsiveContainer,
 } from 'recharts';
 
-const HistogramChart = forwardRef(function HistogramChart(props, ref) {
-  const [data, setData] = useState([]);
-  const [tags, setTags] = useState([]);
+interface HistogramData {
+  tag: string;
+  step: number;
+  min: number;
+  max: number;
+  sum: number;
+  num: number;
+}
+
+interface HistogramApiResponse {
+  data: HistogramData[];
+}
+
+interface ChartData {
+  name: string;
+  value: number;
+}
+
+export interface HistogramChartHandle {
+  refresh: () => void;
+}
+
+const HistogramChart = forwardRef<HistogramChartHandle>(function HistogramChart(_props, ref) {
+  const [data, setData] = useState<HistogramData[]>([]);
+  const [tags, setTags] = useState<string[]>([]);
   const [selectedTag, setSelectedTag] = useState('');
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState(null);
+  const [error, setError] = useState<string | null>(null);
 
   const fetchHistograms = useCallback(async () => {
     try {
@@ -23,7 +45,7 @@ const HistogramChart = forwardRef(function HistogramChart(props, ref) {
       if (!response.ok) {
         throw new Error('Failed to fetch histograms');
       }
-      const result = await response.json();
+      const result: HistogramApiResponse = await response.json();
       
       // Extract unique tags
       const uniqueTags = [...new Set(result.data.map(item => item.tag))];
@@ -41,7 +63,7 @@ const HistogramChart = forwardRef(function HistogramChart(props, ref) {
       setLoading(false);
       setError(null);
     } catch (err) {
-      setError(err.message);
+      setError(err instanceof Error ? err.message : 'Unknown error');
       setLoading(false);
     }
   }, []);
@@ -56,7 +78,7 @@ const HistogramChart = forwardRef(function HistogramChart(props, ref) {
     refresh: fetchHistograms
   }), [fetchHistograms]);
 
-  const getChartData = () => {
+  const getChartData = (): ChartData[] => {
     if (!selectedTag) return [];
     
     // Get the latest histogram for the selected tag
