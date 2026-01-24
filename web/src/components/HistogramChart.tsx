@@ -6,7 +6,6 @@ import {
   YAxis,
   CartesianGrid,
   Tooltip,
-  Legend,
   ResponsiveContainer,
 } from 'recharts';
 
@@ -23,9 +22,9 @@ interface HistogramApiResponse {
   data: HistogramData[];
 }
 
-interface ChartData {
+interface SingleHistogramChartData {
   name: string; // Statistic name: 'Min', 'Max', or 'Mean'
-  [key: string]: number | string; // Dynamic keys: tag names map to their statistic values
+  value: number;
 }
 
 export interface HistogramChartHandle {
@@ -112,39 +111,22 @@ const HistogramChart = forwardRef<HistogramChartHandle>(function HistogramChart(
     setSelectedTags(new Set());
   };
 
-  // Compute latest histograms for each selected tag (used by both chart and info display)
-  const getLatestHistograms = (): Map<string, HistogramData> => {
-    const latestHistograms = new Map<string, HistogramData>();
-    
-    data
-      .filter(item => selectedTags.has(item.tag))
-      .forEach(item => {
-        const existing = latestHistograms.get(item.tag);
-        if (!existing || item.step > existing.step) {
-          latestHistograms.set(item.tag, item);
-        }
-      });
-    
-    return latestHistograms;
+  // Get the latest histogram for a specific tag
+  const getLatestHistogramForTag = (tag: string): HistogramData | null => {
+    const tagData = data.filter(item => item.tag === tag);
+    if (tagData.length === 0) return null;
+    return tagData.reduce((max, item) => 
+      item.step > max.step ? item : max
+    );
   };
 
-  const getChartData = (latestHistograms: Map<string, HistogramData>): ChartData[] => {
-    if (selectedTags.size === 0) return [];
-    
-    // Create chart data with Min, Max, Mean for each selected tag
-    const chartData: ChartData[] = [
-      { name: 'Min' },
-      { name: 'Max' },
-      { name: 'Mean' },
+  // Get chart data for a specific tag
+  const getChartDataForTag = (histogram: HistogramData): SingleHistogramChartData[] => {
+    return [
+      { name: 'Min', value: histogram.min },
+      { name: 'Max', value: histogram.max },
+      { name: 'Mean', value: histogram.sum / histogram.num },
     ];
-    
-    latestHistograms.forEach((histogram, tag) => {
-      chartData[0][tag] = histogram.min;
-      chartData[1][tag] = histogram.max;
-      chartData[2][tag] = histogram.sum / histogram.num;
-    });
-    
-    return chartData;
   };
 
   if (loading) {
@@ -155,8 +137,6 @@ const HistogramChart = forwardRef<HistogramChartHandle>(function HistogramChart(
     return <div className="error">Error: {error}</div>;
   }
 
-  const latestHistograms = getLatestHistograms();
-  const chartData = getChartData(latestHistograms);
   const selectedTagsArray = Array.from(selectedTags);
 
   return (
@@ -191,46 +171,41 @@ const HistogramChart = forwardRef<HistogramChartHandle>(function HistogramChart(
           );
         })}
       </div>
-      <ResponsiveContainer width="100%" height={400}>
-        <BarChart data={chartData}>
-          <CartesianGrid strokeDasharray="3 3" />
-          <XAxis dataKey="name" />
-          <YAxis />
-          <Tooltip />
-          <Legend />
-          {selectedTagsArray.map((tag) => {
-            const colorIndex = tags.indexOf(tag);
-            return (
-              <Bar 
-                key={tag}
-                dataKey={tag} 
-                fill={COLORS[colorIndex % COLORS.length]} 
-              />
-            );
-          })}
-        </BarChart>
-      </ResponsiveContainer>
-      {selectedTagsArray.length > 0 && (
-        <div className="histogram-info-multi">
-          {selectedTagsArray.map((tag) => {
-            const latest = latestHistograms.get(tag);
-            if (latest) {
-              const colorIndex = tags.indexOf(tag);
-              return (
-                <div 
-                  key={tag} 
-                  className="histogram-info-item"
-                  style={{ borderLeftColor: COLORS[colorIndex % COLORS.length] }}
-                >
-                  <strong>{tag}</strong>
-                  <span>Count: {latest.num}</span>
-                  <span>Sum: {latest.sum.toFixed(2)}</span>
-                </div>
-              );
-            }
-            return null;
-          })}
-        </div>
+      {/* Display each selected histogram in its own chart */}
+      <div className="charts-grid">
+        {selectedTagsArray.map((tag) => {
+          const colorIndex = tags.indexOf(tag);
+          const latestHistogram = getLatestHistogramForTag(tag);
+          if (!latestHistogram) return null;
+          
+          const chartData = getChartDataForTag(latestHistogram);
+          return (
+            <div key={tag} className="individual-chart">
+              <h3 className="chart-title" style={{ color: COLORS[colorIndex % COLORS.length] }}>
+                {tag}
+              </h3>
+              <ResponsiveContainer width="100%" height={250}>
+                <BarChart data={chartData}>
+                  <CartesianGrid strokeDasharray="3 3" />
+                  <XAxis dataKey="name" />
+                  <YAxis />
+                  <Tooltip />
+                  <Bar 
+                    dataKey="value" 
+                    fill={COLORS[colorIndex % COLORS.length]} 
+                  />
+                </BarChart>
+              </ResponsiveContainer>
+              <div className="histogram-info-single">
+                <span>Count: {latestHistogram.num}</span>
+                <span>Sum: {latestHistogram.sum.toFixed(2)}</span>
+              </div>
+            </div>
+          );
+        })}
+      </div>
+      {selectedTagsArray.length === 0 && (
+        <div className="no-selection">Select metrics to display charts</div>
       )}
     </div>
   );

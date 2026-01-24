@@ -260,7 +260,46 @@
   opacity: 0.5;
 }
 
-/* Multi-histogram info */
+/* Grid layout for individual charts */
+.charts-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(400px, 1fr));
+  gap: 1.5rem;
+  margin-top: 1rem;
+}
+
+.individual-chart {
+  background-color: rgba(255, 255, 255, 0.03);
+  border-radius: 8px;
+  padding: 1rem;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.chart-title {
+  margin: 0 0 0.75rem 0;
+  font-size: 1rem;
+  font-weight: 600;
+  text-align: left;
+}
+
+.no-selection {
+  text-align: center;
+  color: #888;
+  padding: 2rem;
+  font-style: italic;
+}
+
+/* Single histogram info (below each chart) */
+.histogram-info-single {
+  display: flex;
+  gap: 1.5rem;
+  justify-content: center;
+  margin-top: 0.5rem;
+  color: #888;
+  font-size: 0.85rem;
+}
+
+/* Multi-histogram info (deprecated - kept for compatibility) */
 .histogram-info-multi {
   margin-top: 1rem;
   display: flex;
@@ -355,6 +394,11 @@
 
   .tag-checkbox.tag-checked {
     background-color: rgba(0, 0, 0, 0.08);
+  }
+
+  .individual-chart {
+    background-color: rgba(0, 0, 0, 0.03);
+    border-color: rgba(0, 0, 0, 0.1);
   }
 
   .histogram-info-item {

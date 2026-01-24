@@ -6,7 +6,6 @@ import {
   YAxis,
   CartesianGrid,
   Tooltip,
-  Legend,
   ResponsiveContainer,
 } from 'recharts';
 
@@ -20,9 +19,9 @@ interface ScalarApiResponse {
   data: ScalarData[];
 }
 
-interface ChartDataPoint {
+interface SingleTagChartData {
   step: number;
-  [key: string]: number; // Dynamic keys: tag names map to their scalar values at this step
+  value: number;
 }
 
 export interface ScalarChartHandle {
@@ -109,23 +108,15 @@ const ScalarChart = forwardRef<ScalarChartHandle>(function ScalarChart(_props, r
     setSelectedTags(new Set());
   };
 
-  const getChartData = (): ChartDataPoint[] => {
-    if (selectedTags.size === 0) return [];
-    
-    // Group data by step for all selected tags
-    const stepMap = new Map<number, ChartDataPoint>();
-    
-    data
-      .filter(item => selectedTags.has(item.tag))
-      .forEach(item => {
-        if (!stepMap.has(item.step)) {
-          stepMap.set(item.step, { step: item.step });
-        }
-        const point = stepMap.get(item.step)!;
-        point[item.tag] = item.value;
-      });
-    
-    return Array.from(stepMap.values()).sort((a, b) => a.step - b.step);
+  // Get chart data for a specific tag
+  const getChartDataForTag = (tag: string): SingleTagChartData[] => {
+    return data
+      .filter(item => item.tag === tag)
+      .sort((a, b) => a.step - b.step)
+      .map(item => ({
+        step: item.step,
+        value: item.value,
+      }));
   };
 
   if (loading) {
@@ -136,7 +127,6 @@ const ScalarChart = forwardRef<ScalarChartHandle>(function ScalarChart(_props, r
     return <div className="error">Error: {error}</div>;
   }
 
-  const chartData = getChartData();
   const selectedTagsArray = Array.from(selectedTags);
 
   return (
@@ -171,34 +161,44 @@ const ScalarChart = forwardRef<ScalarChartHandle>(function ScalarChart(_props, r
           );
         })}
       </div>
-      <ResponsiveContainer width="100%" height={400}>
-        <LineChart data={chartData}>
-          <CartesianGrid strokeDasharray="3 3" />
-          <XAxis 
-            dataKey="step" 
-            label={{ value: 'Step', position: 'insideBottom', offset: -5 }}
-          />
-          <YAxis 
-            label={{ value: 'Value', angle: -90, position: 'insideLeft' }}
-          />
-          <Tooltip />
-          <Legend />
-          {selectedTagsArray.map((tag) => {
-            const colorIndex = tags.indexOf(tag);
-            return (
-              <Line 
-                key={tag}
-                type="monotone" 
-                dataKey={tag}
-                stroke={COLORS[colorIndex % COLORS.length]}
-                name={tag}
-                dot={{ r: 2 }}
-                connectNulls
-              />
-            );
-          })}
-        </LineChart>
-      </ResponsiveContainer>
+      {/* Display each selected metric in its own chart */}
+      <div className="charts-grid">
+        {selectedTagsArray.map((tag) => {
+          const colorIndex = tags.indexOf(tag);
+          const chartData = getChartDataForTag(tag);
+          return (
+            <div key={tag} className="individual-chart">
+              <h3 className="chart-title" style={{ color: COLORS[colorIndex % COLORS.length] }}>
+                {tag}
+              </h3>
+              <ResponsiveContainer width="100%" height={250}>
+                <LineChart data={chartData}>
+                  <CartesianGrid strokeDasharray="3 3" />
+                  <XAxis 
+                    dataKey="step" 
+                    label={{ value: 'Step', position: 'insideBottom', offset: -5 }}
+                  />
+                  <YAxis 
+                    label={{ value: 'Value', angle: -90, position: 'insideLeft' }}
+                  />
+                  <Tooltip />
+                  <Line 
+                    type="monotone" 
+                    dataKey="value"
+                    stroke={COLORS[colorIndex % COLORS.length]}
+                    name={tag}
+                    dot={{ r: 2 }}
+                    connectNulls
+                  />
+                </LineChart>
+              </ResponsiveContainer>
+            </div>
+          );
+        })}
+      </div>
+      {selectedTagsArray.length === 0 && (
+        <div className="no-selection">Select metrics to display charts</div>
+      )}
     </div>
   );
 });
