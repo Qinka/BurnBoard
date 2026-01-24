@@ -38,6 +38,72 @@
   margin-top: 0.5rem;
 }
 
+.refresh-controls {
+  display: flex;
+  gap: 1rem;
+  justify-content: center;
+  align-items: center;
+  margin-bottom: 1.5rem;
+  flex-wrap: wrap;
+}
+
+.refresh-button {
+  padding: 0.5rem 1rem;
+  font-size: 0.9rem;
+  border: 1px solid #4CAF50;
+  background-color: transparent;
+  color: #4CAF50;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: all 0.3s;
+}
+
+.refresh-button:hover {
+  background-color: #4CAF50;
+  color: white;
+}
+
+.auto-refresh-toggle {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  cursor: pointer;
+  color: #888;
+}
+
+.auto-refresh-toggle input {
+  cursor: pointer;
+  width: 16px;
+  height: 16px;
+}
+
+.interval-selector {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  color: #888;
+}
+
+.interval-selector select {
+  padding: 0.25rem 0.5rem;
+  font-size: 0.9rem;
+  border-radius: 4px;
+  border: 1px solid #646cff;
+  background-color: #242424;
+  color: white;
+  cursor: pointer;
+}
+
+.interval-selector select:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.last-refresh {
+  color: #888;
+  font-size: 0.85rem;
+}
+
 .app-nav {
   display: flex;
   gap: 1rem;
@@ -145,5 +211,19 @@
   .tag-selector {
     background-color: white;
     color: #213547;
+  }
+  
+  .interval-selector select {
+    background-color: white;
+    color: #213547;
+  }
+  
+  .refresh-button {
+    border-color: #45a049;
+    color: #45a049;
+  }
+  
+  .refresh-button:hover {
+    background-color: #45a049;
   }
 }
