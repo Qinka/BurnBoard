@@ -34,10 +34,17 @@ struct ServerArgs {
 }
 
 
+// Event with run information
+#[derive(Clone)]
+struct EventWithRun {
+    event: Event,
+    run: String,
+}
+
 // State shared across requests
 #[derive(Clone)]
 struct AppState {
-    events: Arc<RwLock<Vec<Event>>>,
+    events: Arc<RwLock<Vec<EventWithRun>>>,
     #[allow(dead_code)]
     log_dir: PathBuf,
 }
@@ -49,6 +56,7 @@ struct ScalarData {
     step: i64,
     wall_time: f64,
     value: f32,
+    run: String,  // The run (subdirectory) this data belongs to
 }
 
 #[derive(Serialize, Deserialize)]
@@ -61,6 +69,7 @@ struct HistogramData {
     num: f64,
     sum: f64,
     sum_squares: f64,
+    run: String,  // The run (subdirectory) this data belongs to
 }
 
 #[derive(Serialize, Deserialize)]
@@ -98,16 +107,17 @@ async fn get_scalars(
     let events = state.events.read().await;
     let mut scalars = Vec::new();
 
-    for event in events.iter() {
-        if let Some(burnboard::proto::event::What::Summary(summary)) = &event.what {
+    for event_with_run in events.iter() {
+        if let Some(burnboard::proto::event::What::Summary(summary)) = &event_with_run.event.what {
             for value in &summary.value {
                 if let Some(burnboard::proto::summary::value::Value::SimpleValue(v)) = &value.value
                 {
                     scalars.push(ScalarData {
                         tag: value.tag.clone(),
-                        step: event.step,
-                        wall_time: event.wall_time,
+                        step: event_with_run.event.step,
+                        wall_time: event_with_run.event.wall_time,
                         value: *v,
+                        run: event_with_run.run.clone(),
                     });
                 }
             }
@@ -128,19 +138,20 @@ async fn get_histograms(
     let events = state.events.read().await;
     let mut histograms = Vec::new();
 
-    for event in events.iter() {
-        if let Some(burnboard::proto::event::What::Summary(summary)) = &event.what {
+    for event_with_run in events.iter() {
+        if let Some(burnboard::proto::event::What::Summary(summary)) = &event_with_run.event.what {
             for value in &summary.value {
                 if let Some(burnboard::proto::summary::value::Value::Histo(h)) = &value.value {
                     histograms.push(HistogramData {
                         tag: value.tag.clone(),
-                        step: event.step,
-                        wall_time: event.wall_time,
+                        step: event_with_run.event.step,
+                        wall_time: event_with_run.event.wall_time,
                         min: h.min,
                         max: h.max,
                         num: h.num,
                         sum: h.sum,
                         sum_squares: h.sum_squares,
+                        run: event_with_run.run.clone(),
                     });
                 }
             }
@@ -159,32 +170,66 @@ async fn health_check() -> &'static str {
     "OK"
 }
 
-/// Load events from the log directory
-fn load_events_from_dir(log_dir: &PathBuf) -> Vec<Event> {
+/// Load events from a directory recursively.
+/// Returns a Vec of EventWithRun where each entry contains an Event and its run name
+/// (the relative path from log_dir).
+fn load_events_from_dir(log_dir: &PathBuf) -> Vec<EventWithRun> {
     let mut events = Vec::new();
     
     if !log_dir.exists() {
         return events;
     }
     
-    // Scan directory for .tfevents files
-    if let Ok(entries) = std::fs::read_dir(log_dir) {
-        for entry in entries.flatten() {
-            let path = entry.path();
-            if path
-                .file_name()
-                .and_then(|s| s.to_str())
-                .and_then(|s| s.split('.').find(|&s| s == "tfevents"))
-                .is_some()
-            {
-                match EventFileParser::open(&path) {
-                    Ok(mut parser) => match parser.read_all_events() {
-                        Ok(file_events) => {
-                            events.extend(file_events);
-                        }
-                        Err(e) => warn!("Failed to read events from {:?}: {}", path, e),
-                    },
-                    Err(e) => warn!("Failed to open event file {:?}: {}", path, e),
+    // Recursively collect all directories to scan (including the root)
+    fn collect_dirs(dir: &PathBuf, dirs: &mut Vec<PathBuf>) {
+        dirs.push(dir.clone());
+        if let Ok(entries) = std::fs::read_dir(dir) {
+            for entry in entries.flatten() {
+                let path = entry.path();
+                if path.is_dir() {
+                    collect_dirs(&path, dirs);
+                }
+            }
+        }
+    }
+    
+    let mut dirs_to_scan = Vec::new();
+    collect_dirs(log_dir, &mut dirs_to_scan);
+    
+    // Scan each directory for .tfevents files
+    for dir in dirs_to_scan {
+        // Calculate the run name as relative path from log_dir
+        let run_name = if dir == *log_dir {
+            ".".to_string()  // Root directory
+        } else {
+            dir.strip_prefix(log_dir)
+                .map(|p| p.to_string_lossy().to_string())
+                .unwrap_or_else(|_| ".".to_string())
+        };
+        
+        if let Ok(entries) = std::fs::read_dir(&dir) {
+            for entry in entries.flatten() {
+                let path = entry.path();
+                if path.is_file() && path
+                    .file_name()
+                    .and_then(|s| s.to_str())
+                    .and_then(|s| s.split('.').find(|&s| s == "tfevents"))
+                    .is_some()
+                {
+                    match EventFileParser::open(&path) {
+                        Ok(mut parser) => match parser.read_all_events() {
+                            Ok(file_events) => {
+                                for event in file_events {
+                                    events.push(EventWithRun {
+                                        event,
+                                        run: run_name.clone(),
+                                    });
+                                }
+                            }
+                            Err(e) => warn!("Failed to read events from {:?}: {}", path, e),
+                        },
+                        Err(e) => warn!("Failed to open event file {:?}: {}", path, e),
+                    }
                 }
             }
         }
