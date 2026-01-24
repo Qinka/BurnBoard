@@ -106,13 +106,14 @@ const generateSVG = (
   const getXValue = (d: SingleRunPoint): number => d.x;
 
   const xValues = chartData.map(getXValue);
-  const yValues = chartData
-    .map(d => {
-      const value = showSmoothed ? d.smoothedValue : d.value;
-      return transformValue(value, yAxisTransform);
-    })
-    .filter(v => !isNaN(v));
-
+  // Include both original and smoothed values for y-range calculation
+  const yValues = chartData.flatMap(d => {
+    const values = [transformValue(d.value, yAxisTransform)];
+    if (showSmoothed && smoothing > 0) {
+      values.push(transformValue(d.smoothedValue, yAxisTransform));
+    }
+    return values;
+  }).filter(v => !isNaN(v));
   const xMin = Math.min(...xValues);
   const xMax = Math.max(...xValues);
   const yMin = Math.min(...yValues);
@@ -242,24 +243,22 @@ const ScalarChart = forwardRef<ScalarChartHandle, ScalarChartProps>(function Sca
 
       const processedData: ScalarData[] = [];
       const tagFirstTime: Map<string, number> = new Map();
-
+      // First pass: find first time for each tag (use wallTime if available, otherwise step)
       for (const item of result.data) {
-        const wallTime = item.wallTime ?? item.step;
-        const key = `${item.tag}::${item.run}`;
-        const existing = tagFirstTime.get(key);
-        if (existing === undefined || wallTime < existing) {
-          tagFirstTime.set(key, wallTime);
+        const itemTime = item.wallTime ?? item.step;
+        const existing = tagFirstTime.get(item.tag);
+        if (existing === undefined || itemTime < existing) {
+          tagFirstTime.set(item.tag, itemTime);
         }
       }
 
       for (const item of result.data) {
-        const wallTime = item.wallTime ?? item.step;
-        const key = `${item.tag}::${item.run}`;
-        const firstTime = tagFirstTime.get(key) ?? wallTime;
+        const firstTime = tagFirstTime.get(item.tag) ?? 0;
+        const itemTime = item.wallTime ?? item.step;
         processedData.push({
           ...item,
-          wallTime,
-          relativeTime: wallTime - firstTime,
+          wallTime: itemTime,  // Use step as fallback for wall time
+          relativeTime: itemTime - firstTime,
         });
       }
 
@@ -402,8 +401,9 @@ const ScalarChart = forwardRef<ScalarChartHandle, ScalarChartProps>(function Sca
     URL.revokeObjectURL(url);
   };
 
+  // Custom tooltip formatter - data is already transformed, just format it
   const formatTooltipValue = (value: number): string => {
-    if (Number.isNaN(value)) return 'N/A';
+    if (isNaN(value) || !isFinite(value)) return 'N/A';
     return value.toFixed(6);
   };
 
