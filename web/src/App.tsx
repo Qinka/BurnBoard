@@ -68,6 +68,12 @@ function App() {
     return () => clearInterval(intervalId)
   }, [autoRefresh, refreshInterval, handleRefresh])
 
+  // Update document title based on active tab
+  useEffect(() => {
+    const tabName = activeTab === 'scalars' ? 'Scalars' : 'Histograms'
+    document.title = `${tabName} - 🔥 BurnBoard`
+  }, [activeTab])
+
   return (
     <div className="app">
       {/* Header - TensorBoard Style */}
