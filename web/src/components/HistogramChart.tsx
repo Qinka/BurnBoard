@@ -122,10 +122,11 @@ const HistogramChart = forwardRef<HistogramChartHandle>(function HistogramChart(
 
   // Get chart data for a specific tag
   const getChartDataForTag = (histogram: HistogramData): SingleHistogramChartData[] => {
+    const mean = histogram.num > 0 ? histogram.sum / histogram.num : 0;
     return [
       { name: 'Min', value: histogram.min },
       { name: 'Max', value: histogram.max },
-      { name: 'Mean', value: histogram.sum / histogram.num },
+      { name: 'Mean', value: mean },
     ];
   };
 
