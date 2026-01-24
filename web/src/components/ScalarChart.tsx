@@ -1,4 +1,4 @@
-import { useEffect, useState, useImperativeHandle, forwardRef, useCallback } from 'react';
+import { useEffect, useState, useImperativeHandle, forwardRef, useCallback, useMemo } from 'react';
 import {
   LineChart,
   Line,
@@ -28,6 +28,11 @@ interface MultiRunChartData {
   [runName: string]: number | undefined;
 }
 
+interface TagGroup {
+  name: string;
+  tags: string[];
+}
+
 export interface ScalarChartHandle {
   refresh: () => void;
 }
@@ -50,13 +55,40 @@ const getRunColor = (index: number): string => {
   return RUN_COLORS[index % RUN_COLORS.length];
 };
 
+// Helper function to group tags by "/" prefix
+const groupTagsByPrefix = (tags: string[]): TagGroup[] => {
+  const groupMap = new Map<string, string[]>();
+
+  tags.forEach(tag => {
+    const slashIndex = tag.indexOf('/');
+    if (slashIndex > 0) {
+      const prefix = tag.substring(0, slashIndex);
+      const existing = groupMap.get(prefix) || [];
+      existing.push(tag);
+      groupMap.set(prefix, existing);
+    } else {
+      const existing = groupMap.get(tag) || [];
+      existing.push(tag);
+      groupMap.set(tag, existing);
+    }
+  });
+
+  return Array.from(groupMap.entries())
+    .map(([name, tags]) => ({ name, tags: tags.sort() }))
+    .sort((a, b) => a.name.localeCompare(b.name));
+};
+
 const ScalarChart = forwardRef<ScalarChartHandle>(function ScalarChart(_props, ref) {
   const [data, setData] = useState<ScalarData[]>([]);
   const [tags, setTags] = useState<string[]>([]);
   const [runs, setRuns] = useState<string[]>([]);
   const [collapsedTags, setCollapsedTags] = useState<Set<string>>(new Set());
+  const [collapsedGroups, setCollapsedGroups] = useState<Set<string>>(new Set());
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+
+  // Group tags by "/" prefix
+  const tagGroups = useMemo(() => groupTagsByPrefix(tags), [tags]);
 
   const fetchScalars = useCallback(async () => {
     try {
@@ -103,6 +135,26 @@ const ScalarChart = forwardRef<ScalarChartHandle>(function ScalarChart(_props, r
       }
       return newSet;
     });
+  };
+
+  const toggleGroupCollapse = (groupName: string) => {
+    setCollapsedGroups(prev => {
+      const newSet = new Set(prev);
+      if (newSet.has(groupName)) {
+        newSet.delete(groupName);
+      } else {
+        newSet.add(groupName);
+      }
+      return newSet;
+    });
+  };
+
+  // Get the short name for a tag (part after the group prefix)
+  const getShortTagName = (tag: string, groupName: string): string => {
+    if (tag.startsWith(groupName + '/')) {
+      return tag.substring(groupName.length + 1);
+    }
+    return tag;
   };
 
   // Get chart data for a specific tag, with all runs combined by step
@@ -157,70 +209,110 @@ const ScalarChart = forwardRef<ScalarChartHandle>(function ScalarChart(_props, r
           </div>
         )}
       </div>
-      {/* Display each metric in its own collapsible chart */}
+      {/* Display metrics grouped by "/" prefix */}
       <div className="charts-list">
-        {tags.map((tag) => {
-          const isCollapsed = collapsedTags.has(tag);
-          const chartData = getChartDataForTag(tag);
-          const tagRuns = getRunsForTag(tag);
+        {tagGroups.map((group) => {
+          const isGroupCollapsed = collapsedGroups.has(group.name);
+          const hasMultipleTags = group.tags.length > 1 || group.tags[0] !== group.name;
+
           return (
-            <div key={tag} className="collapsible-chart">
-              <div
-                className="chart-title-bar"
-                onClick={() => toggleCollapse(tag)}
-                style={{ borderLeftColor: getRunColor(0) }}
-                role="button"
-                aria-expanded={!isCollapsed}
-                aria-controls={`chart-content-${tag.replace(/\//g, '-')}`}
-                tabIndex={0}
-                onKeyDown={(e) => {
-                  if (e.key === 'Enter' || e.key === ' ') {
-                    e.preventDefault();
-                    toggleCollapse(tag);
-                  }
-                }}
-              >
-                <span className="collapse-icon" aria-hidden="true">{isCollapsed ? '▶' : '▼'}</span>
-                <h3 className="chart-title">
-                  {tag}
-                </h3>
-              </div>
-              {!isCollapsed && (
-                <div className="chart-content" id={`chart-content-${tag.replace(/\//g, '-')}`}>
-                  <ResizableChart 
-                    tag={tag}
-                    defaultHeight={250}
-                    minHeight={100}
-                    maxHeight={600}
-                  >
-                    {(height) => (
-                      <ResponsiveContainer width="100%" height={height}>
-                        <LineChart data={chartData}>
-                          <CartesianGrid strokeDasharray="3 3" />
-                          <XAxis
-                            dataKey="step"
-                            label={{ value: 'Step', position: 'insideBottom', offset: -5 }}
-                          />
-                          <YAxis
-                            label={{ value: 'Value', angle: -90, position: 'insideLeft' }}
-                          />
-                          <Tooltip />
-                          {tagRuns.length > 1 && <Legend />}
-                          {tagRuns.map((run) => (
-                            <Line
-                              key={run}
-                              type="monotone"
-                              dataKey={run}
-                              stroke={getRunColor(runs.indexOf(run))}
-                              name={run}
-                              dot={{ r: 2 }}
-                              connectNulls
-                            />
-                          ))}
-                        </LineChart>
-                      </ResponsiveContainer>
-                    )}
-                  </ResizableChart>
+            <div key={group.name} className="metric-group">
+              {hasMultipleTags && (
+                <div
+                  className="group-header"
+                  onClick={() => toggleGroupCollapse(group.name)}
+                  role="button"
+                  aria-expanded={!isGroupCollapsed}
+                  tabIndex={0}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter' || e.key === ' ') {
+                      e.preventDefault();
+                      toggleGroupCollapse(group.name);
+                    }
+                  }}
+                >
+                  <span className="collapse-icon" aria-hidden="true">{isGroupCollapsed ? '▶' : '▼'}</span>
+                  <h3 className="group-title">{group.name}</h3>
+                  <span className="group-count">({group.tags.length})</span>
+                </div>
+              )}
+
+              {!isGroupCollapsed && (
+                <div className={hasMultipleTags ? "group-content" : ""}>
+                  {group.tags.map((tag) => {
+                    const isCollapsed = collapsedTags.has(tag);
+                    const chartData = getChartDataForTag(tag);
+                    const tagRuns = getRunsForTag(tag);
+                    if (tagRuns.length === 0) return null;
+
+                    const displayName = hasMultipleTags ? getShortTagName(tag, group.name) : tag;
+                    const titleColor = tagRuns.length > 0
+                      ? getRunColor(runs.indexOf(tagRuns[0]))
+                      : getRunColor(0);
+
+                    return (
+                      <div key={tag} className="collapsible-chart">
+                        <div
+                          className="chart-title-bar"
+                          onClick={() => toggleCollapse(tag)}
+                          style={{ borderLeftColor: titleColor }}
+                          role="button"
+                          aria-expanded={!isCollapsed}
+                          aria-controls={`chart-content-${tag.replace(/\//g, '-')}`}
+                          tabIndex={0}
+                          onKeyDown={(e) => {
+                            if (e.key === 'Enter' || e.key === ' ') {
+                              e.preventDefault();
+                              toggleCollapse(tag);
+                            }
+                          }}
+                        >
+                          <span className="collapse-icon" aria-hidden="true">{isCollapsed ? '▶' : '▼'}</span>
+                          <h3 className="chart-title">
+                            {displayName}
+                          </h3>
+                        </div>
+                        {!isCollapsed && (
+                          <div className="chart-content" id={`chart-content-${tag.replace(/\//g, '-')}`}>
+                            <ResizableChart
+                              tag={tag}
+                              defaultHeight={250}
+                              minHeight={100}
+                              maxHeight={600}
+                            >
+                              {(height) => (
+                                <ResponsiveContainer width="100%" height={height}>
+                                  <LineChart data={chartData}>
+                                    <CartesianGrid strokeDasharray="3 3" />
+                                    <XAxis
+                                      dataKey="step"
+                                      label={{ value: 'Step', position: 'insideBottom', offset: -5 }}
+                                    />
+                                    <YAxis
+                                      label={{ value: 'Value', angle: -90, position: 'insideLeft' }}
+                                    />
+                                    <Tooltip />
+                                    {tagRuns.length > 1 && <Legend />}
+                                    {tagRuns.map((run) => (
+                                      <Line
+                                        key={run}
+                                        type="monotone"
+                                        dataKey={run}
+                                        stroke={getRunColor(runs.indexOf(run))}
+                                        name={run}
+                                        dot={{ r: 2 }}
+                                        connectNulls
+                                      />
+                                    ))}
+                                  </LineChart>
+                                </ResponsiveContainer>
+                              )}
+                            </ResizableChart>
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })}
                 </div>
               )}
             </div>
