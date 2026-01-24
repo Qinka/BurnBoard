@@ -291,11 +291,6 @@
   gap: 0.5rem;
 }
 
-.chart-header h2::before {
-  content: '📊';
-  font-size: 1rem;
-}
-
 .tag-selector {
   padding: 0.5rem 0.75rem;
   font-size: 0.875rem;
@@ -387,7 +382,7 @@
   box-shadow: var(--shadow-md);
 }
 
-.chart-title {
+.individual-chart .chart-title {
   margin: 0 0 1rem 0;
   font-size: 0.875rem;
   font-weight: 500;
