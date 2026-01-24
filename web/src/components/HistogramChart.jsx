@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useImperativeHandle, forwardRef, useCallback } from 'react';
 import {
   BarChart,
   Bar,
@@ -10,18 +10,14 @@ import {
   ResponsiveContainer,
 } from 'recharts';
 
-export default function HistogramChart() {
+const HistogramChart = forwardRef(function HistogramChart(props, ref) {
   const [data, setData] = useState([]);
   const [tags, setTags] = useState([]);
   const [selectedTag, setSelectedTag] = useState('');
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
 
-  useEffect(() => {
-    fetchHistograms();
-  }, []);
-
-  const fetchHistograms = async () => {
+  const fetchHistograms = useCallback(async () => {
     try {
       const response = await fetch('/api/histograms');
       if (!response.ok) {
@@ -33,18 +29,32 @@ export default function HistogramChart() {
       const uniqueTags = [...new Set(result.data.map(item => item.tag))];
       setTags(uniqueTags);
       
-      // Set default tag
-      if (uniqueTags.length > 0 && !selectedTag) {
-        setSelectedTag(uniqueTags[0]);
-      }
+      // Set default tag only if none selected
+      setSelectedTag(prev => {
+        if (uniqueTags.length > 0 && !prev) {
+          return uniqueTags[0];
+        }
+        return prev;
+      });
       
       setData(result.data);
       setLoading(false);
+      setError(null);
     } catch (err) {
       setError(err.message);
       setLoading(false);
     }
-  };
+  }, []);
+
+  useEffect(() => {
+    fetchHistograms();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  // Expose refresh method to parent
+  useImperativeHandle(ref, () => ({
+    refresh: fetchHistograms
+  }), [fetchHistograms]);
 
   const getChartData = () => {
     if (!selectedTag) return [];
@@ -111,4 +121,6 @@ export default function HistogramChart() {
       })()}
     </div>
   );
-}
+});
+
+export default HistogramChart;

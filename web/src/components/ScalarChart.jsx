@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useImperativeHandle, forwardRef, useCallback } from 'react';
 import {
   LineChart,
   Line,
@@ -10,18 +10,14 @@ import {
   ResponsiveContainer,
 } from 'recharts';
 
-export default function ScalarChart() {
+const ScalarChart = forwardRef(function ScalarChart(props, ref) {
   const [data, setData] = useState([]);
   const [tags, setTags] = useState([]);
   const [selectedTag, setSelectedTag] = useState('');
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
 
-  useEffect(() => {
-    fetchScalars();
-  }, []);
-
-  const fetchScalars = async () => {
+  const fetchScalars = useCallback(async () => {
     try {
       const response = await fetch('/api/scalars');
       if (!response.ok) {
@@ -33,18 +29,32 @@ export default function ScalarChart() {
       const uniqueTags = [...new Set(result.data.map(item => item.tag))];
       setTags(uniqueTags);
       
-      // Set default tag
-      if (uniqueTags.length > 0 && !selectedTag) {
-        setSelectedTag(uniqueTags[0]);
-      }
+      // Set default tag only if none selected
+      setSelectedTag(prev => {
+        if (uniqueTags.length > 0 && !prev) {
+          return uniqueTags[0];
+        }
+        return prev;
+      });
       
       setData(result.data);
       setLoading(false);
+      setError(null);
     } catch (err) {
       setError(err.message);
       setLoading(false);
     }
-  };
+  }, []);
+
+  useEffect(() => {
+    fetchScalars();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  // Expose refresh method to parent
+  useImperativeHandle(ref, () => ({
+    refresh: fetchScalars
+  }), [fetchScalars]);
 
   const getChartData = () => {
     if (!selectedTag) return [];
@@ -102,4 +112,6 @@ export default function ScalarChart() {
       </ResponsiveContainer>
     </div>
   );
-}
+});
+
+export default ScalarChart;
