@@ -20,19 +20,33 @@ interface ScalarApiResponse {
   data: ScalarData[];
 }
 
-interface ChartData {
+interface ChartDataPoint {
   step: number;
-  value: number;
+  [key: string]: number; // Dynamic keys for each tag
 }
 
 export interface ScalarChartHandle {
   refresh: () => void;
 }
 
+// Color palette for multiple metrics (TensorBoard-like colors)
+const COLORS = [
+  '#1f77b4', // blue
+  '#ff7f0e', // orange
+  '#2ca02c', // green
+  '#d62728', // red
+  '#9467bd', // purple
+  '#8c564b', // brown
+  '#e377c2', // pink
+  '#7f7f7f', // gray
+  '#bcbd22', // olive
+  '#17becf', // cyan
+];
+
 const ScalarChart = forwardRef<ScalarChartHandle>(function ScalarChart(_props, ref) {
   const [data, setData] = useState<ScalarData[]>([]);
   const [tags, setTags] = useState<string[]>([]);
-  const [selectedTag, setSelectedTag] = useState('');
+  const [selectedTags, setSelectedTags] = useState<Set<string>>(new Set());
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -48,10 +62,10 @@ const ScalarChart = forwardRef<ScalarChartHandle>(function ScalarChart(_props, r
       const uniqueTags = [...new Set(result.data.map(item => item.tag))];
       setTags(uniqueTags);
       
-      // Set default tag only if none selected
-      setSelectedTag(prev => {
-        if (uniqueTags.length > 0 && !prev) {
-          return uniqueTags[0];
+      // Select all tags by default on first load
+      setSelectedTags(prev => {
+        if (prev.size === 0 && uniqueTags.length > 0) {
+          return new Set(uniqueTags);
         }
         return prev;
       });
@@ -75,15 +89,43 @@ const ScalarChart = forwardRef<ScalarChartHandle>(function ScalarChart(_props, r
     refresh: fetchScalars
   }), [fetchScalars]);
 
-  const getChartData = (): ChartData[] => {
-    if (!selectedTag) return [];
-    return data
-      .filter(item => item.tag === selectedTag)
-      .sort((a, b) => a.step - b.step)
-      .map(item => ({
-        step: item.step,
-        value: item.value,
-      }));
+  const toggleTag = (tag: string) => {
+    setSelectedTags(prev => {
+      const newSet = new Set(prev);
+      if (newSet.has(tag)) {
+        newSet.delete(tag);
+      } else {
+        newSet.add(tag);
+      }
+      return newSet;
+    });
+  };
+
+  const selectAll = () => {
+    setSelectedTags(new Set(tags));
+  };
+
+  const selectNone = () => {
+    setSelectedTags(new Set());
+  };
+
+  const getChartData = (): ChartDataPoint[] => {
+    if (selectedTags.size === 0) return [];
+    
+    // Group data by step for all selected tags
+    const stepMap = new Map<number, ChartDataPoint>();
+    
+    data
+      .filter(item => selectedTags.has(item.tag))
+      .forEach(item => {
+        if (!stepMap.has(item.step)) {
+          stepMap.set(item.step, { step: item.step });
+        }
+        const point = stepMap.get(item.step)!;
+        point[item.tag] = item.value;
+      });
+    
+    return Array.from(stepMap.values()).sort((a, b) => a.step - b.step);
   };
 
   if (loading) {
@@ -94,22 +136,36 @@ const ScalarChart = forwardRef<ScalarChartHandle>(function ScalarChart(_props, r
     return <div className="error">Error: {error}</div>;
   }
 
+  const chartData = getChartData();
+  const selectedTagsArray = Array.from(selectedTags);
+
   return (
     <div className="chart-container">
       <div className="chart-header">
         <h2>Scalar Values</h2>
-        <select 
-          value={selectedTag} 
-          onChange={(e) => setSelectedTag(e.target.value)}
-          className="tag-selector"
-        >
-          {tags.map(tag => (
-            <option key={tag} value={tag}>{tag}</option>
-          ))}
-        </select>
+        <div className="tag-controls">
+          <button className="tag-control-btn" onClick={selectAll}>Select All</button>
+          <button className="tag-control-btn" onClick={selectNone}>Clear</button>
+        </div>
+      </div>
+      <div className="tag-selector-multi">
+        {tags.map((tag, index) => (
+          <label key={tag} className="tag-checkbox" style={{ borderColor: COLORS[index % COLORS.length] }}>
+            <input
+              type="checkbox"
+              checked={selectedTags.has(tag)}
+              onChange={() => toggleTag(tag)}
+            />
+            <span 
+              className="tag-color-indicator" 
+              style={{ backgroundColor: COLORS[index % COLORS.length] }}
+            />
+            <span className="tag-label">{tag}</span>
+          </label>
+        ))}
       </div>
       <ResponsiveContainer width="100%" height={400}>
-        <LineChart data={getChartData()}>
+        <LineChart data={chartData}>
           <CartesianGrid strokeDasharray="3 3" />
           <XAxis 
             dataKey="step" 
@@ -120,13 +176,20 @@ const ScalarChart = forwardRef<ScalarChartHandle>(function ScalarChart(_props, r
           />
           <Tooltip />
           <Legend />
-          <Line 
-            type="monotone" 
-            dataKey="value" 
-            stroke="#8884d8" 
-            name={selectedTag}
-            dot={{ r: 3 }}
-          />
+          {selectedTagsArray.map((tag) => {
+            const colorIndex = tags.indexOf(tag);
+            return (
+              <Line 
+                key={tag}
+                type="monotone" 
+                dataKey={tag}
+                stroke={COLORS[colorIndex % COLORS.length]}
+                name={tag}
+                dot={{ r: 2 }}
+                connectNulls
+              />
+            );
+          })}
         </LineChart>
       </ResponsiveContainer>
     </div>

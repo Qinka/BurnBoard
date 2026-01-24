@@ -25,17 +25,31 @@ interface HistogramApiResponse {
 
 interface ChartData {
   name: string;
-  value: number;
+  [key: string]: number | string; // Dynamic keys for each tag
 }
 
 export interface HistogramChartHandle {
   refresh: () => void;
 }
 
+// Color palette for multiple metrics (TensorBoard-like colors)
+const COLORS = [
+  '#1f77b4', // blue
+  '#ff7f0e', // orange
+  '#2ca02c', // green
+  '#d62728', // red
+  '#9467bd', // purple
+  '#8c564b', // brown
+  '#e377c2', // pink
+  '#7f7f7f', // gray
+  '#bcbd22', // olive
+  '#17becf', // cyan
+];
+
 const HistogramChart = forwardRef<HistogramChartHandle>(function HistogramChart(_props, ref) {
   const [data, setData] = useState<HistogramData[]>([]);
   const [tags, setTags] = useState<string[]>([]);
-  const [selectedTag, setSelectedTag] = useState('');
+  const [selectedTags, setSelectedTags] = useState<Set<string>>(new Set());
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -51,10 +65,10 @@ const HistogramChart = forwardRef<HistogramChartHandle>(function HistogramChart(
       const uniqueTags = [...new Set(result.data.map(item => item.tag))];
       setTags(uniqueTags);
       
-      // Set default tag only if none selected
-      setSelectedTag(prev => {
-        if (uniqueTags.length > 0 && !prev) {
-          return uniqueTags[0];
+      // Select all tags by default on first load
+      setSelectedTags(prev => {
+        if (prev.size === 0 && uniqueTags.length > 0) {
+          return new Set(uniqueTags);
         }
         return prev;
       });
@@ -78,22 +92,55 @@ const HistogramChart = forwardRef<HistogramChartHandle>(function HistogramChart(
     refresh: fetchHistograms
   }), [fetchHistograms]);
 
+  const toggleTag = (tag: string) => {
+    setSelectedTags(prev => {
+      const newSet = new Set(prev);
+      if (newSet.has(tag)) {
+        newSet.delete(tag);
+      } else {
+        newSet.add(tag);
+      }
+      return newSet;
+    });
+  };
+
+  const selectAll = () => {
+    setSelectedTags(new Set(tags));
+  };
+
+  const selectNone = () => {
+    setSelectedTags(new Set());
+  };
+
   const getChartData = (): ChartData[] => {
-    if (!selectedTag) return [];
+    if (selectedTags.size === 0) return [];
     
-    // Get the latest histogram for the selected tag
-    const histograms = data.filter(item => item.tag === selectedTag);
-    if (histograms.length === 0) return [];
+    // Get the latest histogram for each selected tag and create comparison data
+    const latestHistograms = new Map<string, HistogramData>();
     
-    const latest = histograms.reduce((max, item) => 
-      item.step > max.step ? item : max
-    );
+    data
+      .filter(item => selectedTags.has(item.tag))
+      .forEach(item => {
+        const existing = latestHistograms.get(item.tag);
+        if (!existing || item.step > existing.step) {
+          latestHistograms.set(item.tag, item);
+        }
+      });
     
-    return [
-      { name: 'Min', value: latest.min },
-      { name: 'Max', value: latest.max },
-      { name: 'Mean', value: latest.sum / latest.num },
+    // Create chart data with Min, Max, Mean for each selected tag
+    const chartData: ChartData[] = [
+      { name: 'Min' },
+      { name: 'Max' },
+      { name: 'Mean' },
     ];
+    
+    latestHistograms.forEach((histogram, tag) => {
+      chartData[0][tag] = histogram.min;
+      chartData[1][tag] = histogram.max;
+      chartData[2][tag] = histogram.sum / histogram.num;
+    });
+    
+    return chartData;
   };
 
   if (loading) {
@@ -104,43 +151,78 @@ const HistogramChart = forwardRef<HistogramChartHandle>(function HistogramChart(
     return <div className="error">Error: {error}</div>;
   }
 
+  const chartData = getChartData();
+  const selectedTagsArray = Array.from(selectedTags);
+
   return (
     <div className="chart-container">
       <div className="chart-header">
         <h2>Histogram Statistics</h2>
-        <select 
-          value={selectedTag} 
-          onChange={(e) => setSelectedTag(e.target.value)}
-          className="tag-selector"
-        >
-          {tags.map(tag => (
-            <option key={tag} value={tag}>{tag}</option>
-          ))}
-        </select>
+        <div className="tag-controls">
+          <button className="tag-control-btn" onClick={selectAll}>Select All</button>
+          <button className="tag-control-btn" onClick={selectNone}>Clear</button>
+        </div>
+      </div>
+      <div className="tag-selector-multi">
+        {tags.map((tag, index) => (
+          <label key={tag} className="tag-checkbox" style={{ borderColor: COLORS[index % COLORS.length] }}>
+            <input
+              type="checkbox"
+              checked={selectedTags.has(tag)}
+              onChange={() => toggleTag(tag)}
+            />
+            <span 
+              className="tag-color-indicator" 
+              style={{ backgroundColor: COLORS[index % COLORS.length] }}
+            />
+            <span className="tag-label">{tag}</span>
+          </label>
+        ))}
       </div>
       <ResponsiveContainer width="100%" height={400}>
-        <BarChart data={getChartData()}>
+        <BarChart data={chartData}>
           <CartesianGrid strokeDasharray="3 3" />
           <XAxis dataKey="name" />
           <YAxis />
           <Tooltip />
           <Legend />
-          <Bar dataKey="value" fill="#82ca9d" />
+          {selectedTagsArray.map((tag) => {
+            const colorIndex = tags.indexOf(tag);
+            return (
+              <Bar 
+                key={tag}
+                dataKey={tag} 
+                fill={COLORS[colorIndex % COLORS.length]} 
+              />
+            );
+          })}
         </BarChart>
       </ResponsiveContainer>
-      {selectedTag && (() => {
-        const tagData = data.filter(item => item.tag === selectedTag);
-        if (tagData.length > 0) {
-          const latest = tagData[0];
-          return (
-            <div className="histogram-info">
-              <p>Count: {latest.num}</p>
-              <p>Sum: {latest.sum.toFixed(2)}</p>
-            </div>
-          );
-        }
-        return null;
-      })()}
+      {selectedTagsArray.length > 0 && (
+        <div className="histogram-info-multi">
+          {selectedTagsArray.map((tag) => {
+            const tagData = data.filter(item => item.tag === tag);
+            if (tagData.length > 0) {
+              const latest = tagData.reduce((max, item) => 
+                item.step > max.step ? item : max
+              );
+              const colorIndex = tags.indexOf(tag);
+              return (
+                <div 
+                  key={tag} 
+                  className="histogram-info-item"
+                  style={{ borderLeftColor: COLORS[colorIndex % COLORS.length] }}
+                >
+                  <strong>{tag}</strong>
+                  <span>Count: {latest.num}</span>
+                  <span>Sum: {latest.sum.toFixed(2)}</span>
+                </div>
+              );
+            }
+            return null;
+          })}
+        </div>
+      )}
     </div>
   );
 });
