@@ -1,4 +1,4 @@
-import { useEffect, useState, useImperativeHandle, forwardRef, useCallback } from 'react';
+import { useEffect, useState, useImperativeHandle, forwardRef, useCallback, useRef } from 'react';
 import {
   LineChart,
   Line,
@@ -7,11 +7,13 @@ import {
   CartesianGrid,
   Tooltip,
   ResponsiveContainer,
+  Legend,
 } from 'recharts';
 
 interface ScalarData {
   tag: string;
   step: number;
+  wall_time: number;
   value: number;
 }
 
@@ -21,15 +23,95 @@ interface ScalarApiResponse {
 
 interface SingleTagChartData {
   step: number;
+  wall_time: number;
+  relative_time: number;
   value: number;
+  smoothed: number;
+  original: number;
 }
 
 export interface ScalarChartHandle {
   refresh: () => void;
 }
 
+// Horizontal axis types
+type XAxisType = 'step' | 'relative_time' | 'wall_time';
+
+// Y-axis scale types
+type YScaleType = 'linear' | 'log';
+
 // Unified color for all metrics
 const CHART_COLOR = '#1f77b4'; // blue
+const SMOOTHED_COLOR = '#1f77b4'; // blue for smoothed line
+const ORIGINAL_COLOR = '#aec7e8'; // light blue for original data
+
+// Apply exponential moving average (EMA) smoothing like TensorBoard
+const applySmoothing = (data: SingleTagChartData[], smoothingFactor: number): SingleTagChartData[] => {
+  if (smoothingFactor === 0 || data.length === 0) {
+    return data.map(d => ({ ...d, smoothed: d.value }));
+  }
+  
+  const smoothed: SingleTagChartData[] = [];
+  let lastSmoothed = data[0].value;
+  
+  for (let i = 0; i < data.length; i++) {
+    const point = data[i];
+    // EMA formula: smoothed = factor * previous + (1 - factor) * current
+    const currentSmoothed = smoothingFactor * lastSmoothed + (1 - smoothingFactor) * point.value;
+    smoothed.push({
+      ...point,
+      smoothed: currentSmoothed,
+      original: point.value,
+    });
+    lastSmoothed = currentSmoothed;
+  }
+  
+  return smoothed;
+};
+
+// Apply Y-axis transformation
+const applyTransform = (value: number, scaleType: YScaleType): number => {
+  if (scaleType === 'log') {
+    // Handle zero and negative values for log scale
+    if (value <= 0) return 0;
+    return Math.log10(value);
+  }
+  return value;
+};
+
+// Format X-axis label based on type
+const formatXAxisLabel = (xAxisType: XAxisType): string => {
+  switch (xAxisType) {
+    case 'step':
+      return 'Step';
+    case 'relative_time':
+      return 'Relative Time (s)';
+    case 'wall_time':
+      return 'Wall Time';
+    default:
+      return 'Step';
+  }
+};
+
+// Format X-axis tick values
+const formatXAxisTick = (value: number, xAxisType: XAxisType): string => {
+  if (xAxisType === 'wall_time') {
+    const date = new Date(value * 1000);
+    return date.toLocaleTimeString();
+  }
+  if (xAxisType === 'relative_time') {
+    return `${value.toFixed(1)}s`;
+  }
+  return String(value);
+};
+
+// Format Y-axis label based on scale type
+const formatYAxisLabel = (scaleType: YScaleType): string => {
+  if (scaleType === 'log') {
+    return 'Value (log₁₀)';
+  }
+  return 'Value';
+};
 
 const ScalarChart = forwardRef<ScalarChartHandle>(function ScalarChart(_props, ref) {
   const [data, setData] = useState<ScalarData[]>([]);
@@ -37,6 +119,15 @@ const ScalarChart = forwardRef<ScalarChartHandle>(function ScalarChart(_props, r
   const [collapsedTags, setCollapsedTags] = useState<Set<string>>(new Set());
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  
+  // Visualization settings
+  const [smoothing, setSmoothing] = useState(0.6);
+  const [xAxisType, setXAxisType] = useState<XAxisType>('step');
+  const [yScaleType, setYScaleType] = useState<YScaleType>('linear');
+  const [showOriginal, setShowOriginal] = useState(true);
+  
+  // Refs for SVG export
+  const chartRefs = useRef<Map<string, HTMLDivElement>>(new Map());
 
   const fetchScalars = useCallback(async () => {
     try {
@@ -83,13 +174,102 @@ const ScalarChart = forwardRef<ScalarChartHandle>(function ScalarChart(_props, r
 
   // Get chart data for a specific tag
   const getChartDataForTag = (tag: string): SingleTagChartData[] => {
-    return data
+    const tagData = data
       .filter(item => item.tag === tag)
-      .sort((a, b) => a.step - b.step)
-      .map(item => ({
+      .sort((a, b) => a.step - b.step);
+    
+    if (tagData.length === 0) return [];
+    
+    const firstWallTime = tagData[0].wall_time;
+    
+    const baseData = tagData.map(item => {
+      const value = applyTransform(item.value, yScaleType);
+      return {
         step: item.step,
-        value: item.value,
-      }));
+        wall_time: item.wall_time,
+        relative_time: item.wall_time - firstWallTime,
+        value: value,
+        smoothed: value,
+        original: value,
+      };
+    });
+    
+    return applySmoothing(baseData, smoothing);
+  };
+
+  // Get X-axis data key based on selected type
+  const getXDataKey = (): string => {
+    switch (xAxisType) {
+      case 'step':
+        return 'step';
+      case 'relative_time':
+        return 'relative_time';
+      case 'wall_time':
+        return 'wall_time';
+      default:
+        return 'step';
+    }
+  };
+
+  // Export chart as SVG
+  const exportChartAsSVG = (tag: string) => {
+    const chartContainer = chartRefs.current.get(tag);
+    if (!chartContainer) return;
+    
+    const svgElement = chartContainer.querySelector('svg');
+    if (!svgElement) return;
+    
+    // Clone the SVG to avoid modifying the original
+    const clonedSvg = svgElement.cloneNode(true) as SVGElement;
+    
+    // Add proper namespace and styling for standalone SVG
+    clonedSvg.setAttribute('xmlns', 'http://www.w3.org/2000/svg');
+    clonedSvg.setAttribute('xmlns:xlink', 'http://www.w3.org/1999/xlink');
+    
+    // Add title element for chart title
+    const titleElement = document.createElementNS('http://www.w3.org/2000/svg', 'title');
+    titleElement.textContent = tag;
+    clonedSvg.insertBefore(titleElement, clonedSvg.firstChild);
+    
+    // Add metadata with editable information
+    const descElement = document.createElementNS('http://www.w3.org/2000/svg', 'desc');
+    descElement.textContent = JSON.stringify({
+      title: tag,
+      xAxis: formatXAxisLabel(xAxisType),
+      yAxis: formatYAxisLabel(yScaleType),
+      smoothing: smoothing,
+      exportedAt: new Date().toISOString(),
+    });
+    clonedSvg.insertBefore(descElement, clonedSvg.firstChild);
+    
+    // Add white background for better paper compatibility
+    const backgroundRect = document.createElementNS('http://www.w3.org/2000/svg', 'rect');
+    backgroundRect.setAttribute('width', '100%');
+    backgroundRect.setAttribute('height', '100%');
+    backgroundRect.setAttribute('fill', 'white');
+    clonedSvg.insertBefore(backgroundRect, clonedSvg.firstChild);
+    
+    // Style text elements for better readability in papers
+    const textElements = clonedSvg.querySelectorAll('text');
+    textElements.forEach(text => {
+      text.setAttribute('font-family', 'Arial, Helvetica, sans-serif');
+      if (!text.getAttribute('fill') || text.getAttribute('fill') === 'rgba(255, 255, 255, 0.87)') {
+        text.setAttribute('fill', '#333');
+      }
+    });
+    
+    // Convert to blob and download
+    const svgData = new XMLSerializer().serializeToString(clonedSvg);
+    const blob = new Blob([svgData], { type: 'image/svg+xml;charset=utf-8' });
+    const url = URL.createObjectURL(blob);
+    
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = `${tag.replace(/\//g, '_')}_chart.svg`;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
   };
 
   if (loading) {
@@ -105,6 +285,65 @@ const ScalarChart = forwardRef<ScalarChartHandle>(function ScalarChart(_props, r
       <div className="chart-header">
         <h2>Scalar Values</h2>
       </div>
+      
+      {/* Global visualization controls */}
+      <div className="visualization-controls">
+        <div className="control-group">
+          <label className="control-label">
+            Smoothing: {smoothing.toFixed(2)}
+            <input
+              type="range"
+              min="0"
+              max="0.99"
+              step="0.01"
+              value={smoothing}
+              onChange={(e) => setSmoothing(parseFloat(e.target.value))}
+              className="smoothing-slider"
+            />
+          </label>
+        </div>
+        
+        <div className="control-group">
+          <label className="control-label">
+            Horizontal Axis:
+            <select
+              value={xAxisType}
+              onChange={(e) => setXAxisType(e.target.value as XAxisType)}
+              className="axis-select"
+            >
+              <option value="step">Step</option>
+              <option value="relative_time">Relative Time</option>
+              <option value="wall_time">Wall Time</option>
+            </select>
+          </label>
+        </div>
+        
+        <div className="control-group">
+          <label className="control-label">
+            Y Scale:
+            <select
+              value={yScaleType}
+              onChange={(e) => setYScaleType(e.target.value as YScaleType)}
+              className="axis-select"
+            >
+              <option value="linear">Linear</option>
+              <option value="log">Logarithmic</option>
+            </select>
+          </label>
+        </div>
+        
+        <div className="control-group">
+          <label className="control-label checkbox-label">
+            <input
+              type="checkbox"
+              checked={showOriginal}
+              onChange={(e) => setShowOriginal(e.target.checked)}
+            />
+            Show Original Data
+          </label>
+        </div>
+      </div>
+      
       {/* Display each metric in its own collapsible chart */}
       <div className="charts-list">
         {tags.map((tag) => {
@@ -131,30 +370,84 @@ const ScalarChart = forwardRef<ScalarChartHandle>(function ScalarChart(_props, r
                 <h3 className="chart-title" style={{ color: CHART_COLOR }}>
                   {tag}
                 </h3>
+                {!isCollapsed && (
+                  <button
+                    className="download-btn"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      exportChartAsSVG(tag);
+                    }}
+                    title="Download as SVG (vector image for papers)"
+                  >
+                    📥 SVG
+                  </button>
+                )}
               </div>
               {!isCollapsed && (
-                <div className="chart-content" id={`chart-content-${tag.replace(/\//g, '-')}`}>
-                  <ResponsiveContainer width="100%" height={250}>
+                <div 
+                  className="chart-content" 
+                  id={`chart-content-${tag.replace(/\//g, '-')}`}
+                  ref={(el) => {
+                    if (el) {
+                      chartRefs.current.set(tag, el);
+                    } else {
+                      chartRefs.current.delete(tag);
+                    }
+                  }}
+                >
+                  <ResponsiveContainer width="100%" height={300}>
                     <LineChart data={chartData}>
                       <CartesianGrid strokeDasharray="3 3" />
                       <XAxis 
-                        dataKey="step" 
-                        label={{ value: 'Step', position: 'insideBottom', offset: -5 }}
+                        dataKey={getXDataKey()}
+                        label={{ value: formatXAxisLabel(xAxisType), position: 'insideBottom', offset: -5 }}
+                        tickFormatter={(value) => formatXAxisTick(value, xAxisType)}
                       />
                       <YAxis 
-                        label={{ value: 'Value', angle: -90, position: 'insideLeft' }}
+                        label={{ value: formatYAxisLabel(yScaleType), angle: -90, position: 'insideLeft' }}
+                        tickFormatter={(value) => yScaleType === 'log' ? value.toFixed(2) : value.toLocaleString()}
                       />
-                      <Tooltip />
+                      <Tooltip 
+                        formatter={(value: number, name: string) => [
+                          yScaleType === 'log' ? `10^${value.toFixed(3)} = ${Math.pow(10, value).toFixed(4)}` : value.toFixed(4),
+                          name
+                        ]}
+                        labelFormatter={(label) => formatXAxisTick(label as number, xAxisType)}
+                      />
+                      <Legend />
+                      {showOriginal && smoothing > 0 && (
+                        <Line 
+                          type="monotone" 
+                          dataKey="original"
+                          stroke={ORIGINAL_COLOR}
+                          name="Original"
+                          dot={false}
+                          strokeWidth={1}
+                          strokeOpacity={0.5}
+                          connectNulls
+                        />
+                      )}
                       <Line 
                         type="monotone" 
-                        dataKey="value"
-                        stroke={CHART_COLOR}
-                        name={tag}
+                        dataKey="smoothed"
+                        stroke={SMOOTHED_COLOR}
+                        name={smoothing > 0 ? "Smoothed" : "Value"}
                         dot={{ r: 2 }}
+                        strokeWidth={2}
                         connectNulls
                       />
                     </LineChart>
                   </ResponsiveContainer>
+                  <div className="chart-stats">
+                    <span>Points: {chartData.length}</span>
+                    {chartData.length > 0 && (
+                      <>
+                        <span>Min: {Math.min(...chartData.map(d => d.original)).toFixed(4)}</span>
+                        <span>Max: {Math.max(...chartData.map(d => d.original)).toFixed(4)}</span>
+                        <span>Last: {chartData[chartData.length - 1]?.original.toFixed(4)}</span>
+                      </>
+                    )}
+                  </div>
                 </div>
               )}
             </div>
