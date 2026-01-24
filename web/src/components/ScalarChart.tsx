@@ -48,6 +48,8 @@ const RUN_COLORS = [
 const getRunColor = (index: number): string => {
   return RUN_COLORS[index % RUN_COLORS.length];
 };
+// TensorBoard-style orange color for all metrics
+const CHART_COLOR = '#FF6F00'; // Primary orange
 
 const ScalarChart = forwardRef<ScalarChartHandle>(function ScalarChart(_props, ref) {
   const [data, setData] = useState<ScalarData[]>([]);
@@ -64,15 +66,15 @@ const ScalarChart = forwardRef<ScalarChartHandle>(function ScalarChart(_props, r
         throw new Error('Failed to fetch scalars');
       }
       const result: ScalarApiResponse = await response.json();
-      
+
       // Extract unique tags and sort alphabetically
       const uniqueTags = [...new Set(result.data.map(item => item.tag))].sort();
       setTags(uniqueTags);
-      
+
       // Extract unique runs and sort alphabetically
       const uniqueRuns = [...new Set(result.data.map(item => item.run))].sort();
       setRuns(uniqueRuns);
-      
+
       setData(result.data);
       setLoading(false);
       setError(null);
@@ -107,10 +109,10 @@ const ScalarChart = forwardRef<ScalarChartHandle>(function ScalarChart(_props, r
   // Get chart data for a specific tag, with all runs combined by step
   const getChartDataForTag = (tag: string): MultiRunChartData[] => {
     const tagData = data.filter(item => item.tag === tag);
-    
+
     // Group data by step, with values for each run
     const stepMap = new Map<number, MultiRunChartData>();
-    
+
     for (const item of tagData) {
       if (!stepMap.has(item.step)) {
         stepMap.set(item.step, { step: item.step });
@@ -118,11 +120,11 @@ const ScalarChart = forwardRef<ScalarChartHandle>(function ScalarChart(_props, r
       const entry = stepMap.get(item.step)!;
       entry[item.run] = item.value;
     }
-    
+
     // Convert to array and sort by step
     return Array.from(stepMap.values()).sort((a, b) => a.step - b.step);
   };
-  
+
   // Get runs that have data for a specific tag
   const getRunsForTag = (tag: string): string[] => {
     const tagData = data.filter(item => item.tag === tag);
@@ -145,8 +147,8 @@ const ScalarChart = forwardRef<ScalarChartHandle>(function ScalarChart(_props, r
           <div className="runs-legend">
             <span className="runs-label">Runs: </span>
             {runs.map((run, index) => (
-              <span 
-                key={run} 
+              <span
+                key={run}
                 className="run-badge"
                 style={{ backgroundColor: getRunColor(index) }}
               >
@@ -164,8 +166,8 @@ const ScalarChart = forwardRef<ScalarChartHandle>(function ScalarChart(_props, r
           const tagRuns = getRunsForTag(tag);
           return (
             <div key={tag} className="collapsible-chart">
-              <div 
-                className="chart-title-bar" 
+              <div
+                className="chart-title-bar"
                 onClick={() => toggleCollapse(tag)}
                 style={{ borderLeftColor: getRunColor(0) }}
                 role="button"
@@ -189,19 +191,19 @@ const ScalarChart = forwardRef<ScalarChartHandle>(function ScalarChart(_props, r
                   <ResponsiveContainer width="100%" height={250}>
                     <LineChart data={chartData}>
                       <CartesianGrid strokeDasharray="3 3" />
-                      <XAxis 
-                        dataKey="step" 
+                      <XAxis
+                        dataKey="step"
                         label={{ value: 'Step', position: 'insideBottom', offset: -5 }}
                       />
-                      <YAxis 
+                      <YAxis
                         label={{ value: 'Value', angle: -90, position: 'insideLeft' }}
                       />
                       <Tooltip />
                       {tagRuns.length > 1 && <Legend />}
                       {tagRuns.map((run, index) => (
-                        <Line 
+                        <Line
                           key={run}
-                          type="monotone" 
+                          type="monotone"
                           dataKey={run}
                           stroke={getRunColor(runs.indexOf(run))}
                           name={run}

@@ -51,6 +51,8 @@ const RUN_COLORS = [
 const getRunColor = (index: number): string => {
   return RUN_COLORS[index % RUN_COLORS.length];
 };
+// TensorBoard-style orange color for all metrics
+const CHART_COLOR = '#FF6F00'; // Primary orange
 
 const HistogramChart = forwardRef<HistogramChartHandle>(function HistogramChart(_props, ref) {
   const [data, setData] = useState<HistogramData[]>([]);
@@ -67,15 +69,15 @@ const HistogramChart = forwardRef<HistogramChartHandle>(function HistogramChart(
         throw new Error('Failed to fetch histograms');
       }
       const result: HistogramApiResponse = await response.json();
-      
+
       // Extract unique tags and sort alphabetically
       const uniqueTags = [...new Set(result.data.map(item => item.tag))].sort();
       setTags(uniqueTags);
-      
+
       // Extract unique runs and sort alphabetically
       const uniqueRuns = [...new Set(result.data.map(item => item.run))].sort();
       setRuns(uniqueRuns);
-      
+
       setData(result.data);
       setLoading(false);
       setError(null);
@@ -111,11 +113,11 @@ const HistogramChart = forwardRef<HistogramChartHandle>(function HistogramChart(
   const getLatestHistogramForTagAndRun = (tag: string, run: string): HistogramData | null => {
     const tagRunData = data.filter(item => item.tag === tag && item.run === run);
     if (tagRunData.length === 0) return null;
-    return tagRunData.reduce((max, item) => 
+    return tagRunData.reduce((max, item) =>
       item.step > max.step ? item : max
     );
   };
-  
+
   // Get runs that have data for a specific tag
   const getRunsForTag = (tag: string): string[] => {
     const tagData = data.filter(item => item.tag === tag);
@@ -126,7 +128,7 @@ const HistogramChart = forwardRef<HistogramChartHandle>(function HistogramChart(
   const getChartDataForTag = (tag: string): { chartData: MultiRunHistogramChartData[], tagRuns: string[], histograms: Map<string, HistogramData> } => {
     const tagRuns = getRunsForTag(tag);
     const histograms = new Map<string, HistogramData>();
-    
+
     // Get latest histogram for each run
     for (const run of tagRuns) {
       const latestHistogram = getLatestHistogramForTagAndRun(tag, run);
@@ -134,14 +136,14 @@ const HistogramChart = forwardRef<HistogramChartHandle>(function HistogramChart(
         histograms.set(run, latestHistogram);
       }
     }
-    
+
     // Build chart data with values for each run
     const chartData: MultiRunHistogramChartData[] = [
       { name: 'Min' },
       { name: 'Max' },
       { name: 'Mean' },
     ];
-    
+
     for (const run of tagRuns) {
       const histogram = histograms.get(run);
       if (histogram) {
@@ -151,7 +153,7 @@ const HistogramChart = forwardRef<HistogramChartHandle>(function HistogramChart(
         chartData[2][run] = mean;
       }
     }
-    
+
     return { chartData, tagRuns, histograms };
   };
 
@@ -171,8 +173,8 @@ const HistogramChart = forwardRef<HistogramChartHandle>(function HistogramChart(
           <div className="runs-legend">
             <span className="runs-label">Runs: </span>
             {runs.map((run, index) => (
-              <span 
-                key={run} 
+              <span
+                key={run}
                 className="run-badge"
                 style={{ backgroundColor: getRunColor(index) }}
               >
@@ -188,11 +190,11 @@ const HistogramChart = forwardRef<HistogramChartHandle>(function HistogramChart(
           const isCollapsed = collapsedTags.has(tag);
           const { chartData, tagRuns, histograms } = getChartDataForTag(tag);
           if (tagRuns.length === 0) return null;
-          
+
           return (
             <div key={tag} className="collapsible-chart">
-              <div 
-                className="chart-title-bar" 
+              <div
+                className="chart-title-bar"
                 onClick={() => toggleCollapse(tag)}
                 style={{ borderLeftColor: getRunColor(0) }}
                 role="button"
@@ -221,7 +223,7 @@ const HistogramChart = forwardRef<HistogramChartHandle>(function HistogramChart(
                       <Tooltip />
                       {tagRuns.length > 1 && <Legend />}
                       {tagRuns.map((run) => (
-                        <Bar 
+                        <Bar
                           key={run}
                           dataKey={run}
                           fill={getRunColor(runs.indexOf(run))}
