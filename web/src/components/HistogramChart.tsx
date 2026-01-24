@@ -68,8 +68,10 @@ const formatXAxisLabel = (xAxisType: XAxisType): string => {
 };
 
 // Format X-axis tick values
+// Note: wall_time from TensorBoard API is Unix timestamp in seconds (float)
 const formatXAxisTick = (value: number, xAxisType: XAxisType): string => {
   if (xAxisType === 'wall_time') {
+    // Convert from seconds to milliseconds for JavaScript Date
     const date = new Date(value * 1000);
     return date.toLocaleTimeString();
   }
