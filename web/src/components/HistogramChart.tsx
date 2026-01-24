@@ -48,7 +48,7 @@ const COLORS = [
 const HistogramChart = forwardRef<HistogramChartHandle>(function HistogramChart(_props, ref) {
   const [data, setData] = useState<HistogramData[]>([]);
   const [tags, setTags] = useState<string[]>([]);
-  const [selectedTags, setSelectedTags] = useState<Set<string>>(new Set());
+  const [collapsedTags, setCollapsedTags] = useState<Set<string>>(new Set());
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -60,17 +60,9 @@ const HistogramChart = forwardRef<HistogramChartHandle>(function HistogramChart(
       }
       const result: HistogramApiResponse = await response.json();
       
-      // Extract unique tags
-      const uniqueTags = [...new Set(result.data.map(item => item.tag))];
+      // Extract unique tags and sort alphabetically
+      const uniqueTags = [...new Set(result.data.map(item => item.tag))].sort();
       setTags(uniqueTags);
-      
-      // Select all tags by default on first load
-      setSelectedTags(prev => {
-        if (prev.size === 0 && uniqueTags.length > 0) {
-          return new Set(uniqueTags);
-        }
-        return prev;
-      });
       
       setData(result.data);
       setLoading(false);
@@ -91,8 +83,8 @@ const HistogramChart = forwardRef<HistogramChartHandle>(function HistogramChart(
     refresh: fetchHistograms
   }), [fetchHistograms]);
 
-  const toggleTag = (tag: string) => {
-    setSelectedTags(prev => {
+  const toggleCollapse = (tag: string) => {
+    setCollapsedTags(prev => {
       const newSet = new Set(prev);
       if (newSet.has(tag)) {
         newSet.delete(tag);
@@ -101,14 +93,6 @@ const HistogramChart = forwardRef<HistogramChartHandle>(function HistogramChart(
       }
       return newSet;
     });
-  };
-
-  const selectAll = () => {
-    setSelectedTags(new Set(tags));
-  };
-
-  const selectNone = () => {
-    setSelectedTags(new Set());
   };
 
   // Get the latest histogram for a specific tag
@@ -138,75 +122,57 @@ const HistogramChart = forwardRef<HistogramChartHandle>(function HistogramChart(
     return <div className="error">Error: {error}</div>;
   }
 
-  const selectedTagsArray = Array.from(selectedTags);
-
   return (
     <div className="chart-container">
       <div className="chart-header">
         <h2>Histogram Statistics</h2>
-        <div className="tag-controls">
-          <button className="tag-control-btn" onClick={selectAll}>Select All</button>
-          <button className="tag-control-btn" onClick={selectNone}>Clear</button>
-        </div>
       </div>
-      <div className="tag-selector-multi">
+      {/* Display each histogram in its own collapsible chart */}
+      <div className="charts-list">
         {tags.map((tag, index) => {
-          const isChecked = selectedTags.has(tag);
-          return (
-            <label 
-              key={tag} 
-              className={`tag-checkbox ${isChecked ? 'tag-checked' : 'tag-unchecked'}`}
-              style={{ borderColor: COLORS[index % COLORS.length] }}
-            >
-              <input
-                type="checkbox"
-                checked={isChecked}
-                onChange={() => toggleTag(tag)}
-              />
-              <span 
-                className="tag-color-indicator" 
-                style={{ backgroundColor: COLORS[index % COLORS.length] }}
-              />
-              <span className="tag-label">{tag}</span>
-            </label>
-          );
-        })}
-      </div>
-      {/* Display each selected histogram in its own chart */}
-      <div className="charts-grid">
-        {selectedTagsArray.map((tag) => {
-          const colorIndex = tags.indexOf(tag);
+          const isCollapsed = collapsedTags.has(tag);
           const latestHistogram = getLatestHistogramForTag(tag);
           if (!latestHistogram) return null;
           
           const chartData = getChartDataForTag(latestHistogram);
           return (
-            <div key={tag} className="individual-chart">
-              <h3 className="chart-title" style={{ color: COLORS[colorIndex % COLORS.length] }}>
-                {tag}
-              </h3>
-              <ResponsiveContainer width="100%" height={250}>
-                <BarChart data={chartData}>
-                  <CartesianGrid strokeDasharray="3 3" />
-                  <XAxis dataKey="name" />
-                  <YAxis />
-                  <Tooltip />
-                  <Bar 
-                    dataKey="value" 
-                    fill={COLORS[colorIndex % COLORS.length]} 
-                  />
-                </BarChart>
-              </ResponsiveContainer>
-              <div className="histogram-info-single">
-                <span>Count: {latestHistogram.num}</span>
-                <span>Sum: {latestHistogram.sum.toFixed(2)}</span>
+            <div key={tag} className="collapsible-chart">
+              <div 
+                className="chart-title-bar" 
+                onClick={() => toggleCollapse(tag)}
+                style={{ borderLeftColor: COLORS[index % COLORS.length] }}
+              >
+                <span className="collapse-icon">{isCollapsed ? '▶' : '▼'}</span>
+                <h3 className="chart-title" style={{ color: COLORS[index % COLORS.length] }}>
+                  {tag}
+                </h3>
               </div>
+              {!isCollapsed && (
+                <div className="chart-content">
+                  <ResponsiveContainer width="100%" height={250}>
+                    <BarChart data={chartData}>
+                      <CartesianGrid strokeDasharray="3 3" />
+                      <XAxis dataKey="name" />
+                      <YAxis />
+                      <Tooltip />
+                      <Bar 
+                        dataKey="value" 
+                        fill={COLORS[index % COLORS.length]} 
+                      />
+                    </BarChart>
+                  </ResponsiveContainer>
+                  <div className="histogram-info-single">
+                    <span>Count: {latestHistogram.num}</span>
+                    <span>Sum: {latestHistogram.sum.toFixed(2)}</span>
+                  </div>
+                </div>
+              )}
             </div>
           );
         })}
       </div>
-      {selectedTagsArray.length === 0 && (
-        <div className="no-selection">Select metrics to display charts</div>
+      {tags.length === 0 && (
+        <div className="no-selection">No histogram metrics available</div>
       )}
     </div>
   );

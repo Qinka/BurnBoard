@@ -268,6 +268,53 @@
   margin-top: 1rem;
 }
 
+/* List layout for collapsible charts */
+.charts-list {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+  margin-top: 1rem;
+}
+
+.collapsible-chart {
+  background-color: rgba(255, 255, 255, 0.03);
+  border-radius: 8px;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  overflow: hidden;
+}
+
+.chart-title-bar {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0.75rem 1rem;
+  cursor: pointer;
+  background-color: rgba(255, 255, 255, 0.05);
+  border-left: 4px solid;
+  transition: background-color 0.2s;
+}
+
+.chart-title-bar:hover {
+  background-color: rgba(255, 255, 255, 0.1);
+}
+
+.collapse-icon {
+  font-size: 0.75rem;
+  color: #888;
+  width: 1rem;
+  flex-shrink: 0;
+}
+
+.chart-title-bar .chart-title {
+  margin: 0;
+  font-size: 1rem;
+  font-weight: 600;
+}
+
+.chart-content {
+  padding: 1rem;
+}
+
 .individual-chart {
   background-color: rgba(255, 255, 255, 0.03);
   border-radius: 8px;
@@ -399,6 +446,19 @@
   .individual-chart {
     background-color: rgba(0, 0, 0, 0.03);
     border-color: rgba(0, 0, 0, 0.1);
+  }
+
+  .collapsible-chart {
+    background-color: rgba(0, 0, 0, 0.03);
+    border-color: rgba(0, 0, 0, 0.1);
+  }
+
+  .chart-title-bar {
+    background-color: rgba(0, 0, 0, 0.05);
+  }
+
+  .chart-title-bar:hover {
+    background-color: rgba(0, 0, 0, 0.1);
   }
 
   .histogram-info-item {

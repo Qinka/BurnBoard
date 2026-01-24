@@ -45,7 +45,7 @@ const COLORS = [
 const ScalarChart = forwardRef<ScalarChartHandle>(function ScalarChart(_props, ref) {
   const [data, setData] = useState<ScalarData[]>([]);
   const [tags, setTags] = useState<string[]>([]);
-  const [selectedTags, setSelectedTags] = useState<Set<string>>(new Set());
+  const [collapsedTags, setCollapsedTags] = useState<Set<string>>(new Set());
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -57,17 +57,9 @@ const ScalarChart = forwardRef<ScalarChartHandle>(function ScalarChart(_props, r
       }
       const result: ScalarApiResponse = await response.json();
       
-      // Extract unique tags
-      const uniqueTags = [...new Set(result.data.map(item => item.tag))];
+      // Extract unique tags and sort alphabetically
+      const uniqueTags = [...new Set(result.data.map(item => item.tag))].sort();
       setTags(uniqueTags);
-      
-      // Select all tags by default on first load
-      setSelectedTags(prev => {
-        if (prev.size === 0 && uniqueTags.length > 0) {
-          return new Set(uniqueTags);
-        }
-        return prev;
-      });
       
       setData(result.data);
       setLoading(false);
@@ -88,8 +80,8 @@ const ScalarChart = forwardRef<ScalarChartHandle>(function ScalarChart(_props, r
     refresh: fetchScalars
   }), [fetchScalars]);
 
-  const toggleTag = (tag: string) => {
-    setSelectedTags(prev => {
+  const toggleCollapse = (tag: string) => {
+    setCollapsedTags(prev => {
       const newSet = new Set(prev);
       if (newSet.has(tag)) {
         newSet.delete(tag);
@@ -98,14 +90,6 @@ const ScalarChart = forwardRef<ScalarChartHandle>(function ScalarChart(_props, r
       }
       return newSet;
     });
-  };
-
-  const selectAll = () => {
-    setSelectedTags(new Set(tags));
-  };
-
-  const selectNone = () => {
-    setSelectedTags(new Set());
   };
 
   // Get chart data for a specific tag
@@ -127,77 +111,59 @@ const ScalarChart = forwardRef<ScalarChartHandle>(function ScalarChart(_props, r
     return <div className="error">Error: {error}</div>;
   }
 
-  const selectedTagsArray = Array.from(selectedTags);
-
   return (
     <div className="chart-container">
       <div className="chart-header">
         <h2>Scalar Values</h2>
-        <div className="tag-controls">
-          <button className="tag-control-btn" onClick={selectAll}>Select All</button>
-          <button className="tag-control-btn" onClick={selectNone}>Clear</button>
-        </div>
       </div>
-      <div className="tag-selector-multi">
+      {/* Display each metric in its own collapsible chart */}
+      <div className="charts-list">
         {tags.map((tag, index) => {
-          const isChecked = selectedTags.has(tag);
-          return (
-            <label 
-              key={tag} 
-              className={`tag-checkbox ${isChecked ? 'tag-checked' : 'tag-unchecked'}`}
-              style={{ borderColor: COLORS[index % COLORS.length] }}
-            >
-              <input
-                type="checkbox"
-                checked={isChecked}
-                onChange={() => toggleTag(tag)}
-              />
-              <span 
-                className="tag-color-indicator" 
-                style={{ backgroundColor: COLORS[index % COLORS.length] }}
-              />
-              <span className="tag-label">{tag}</span>
-            </label>
-          );
-        })}
-      </div>
-      {/* Display each selected metric in its own chart */}
-      <div className="charts-grid">
-        {selectedTagsArray.map((tag) => {
-          const colorIndex = tags.indexOf(tag);
+          const isCollapsed = collapsedTags.has(tag);
           const chartData = getChartDataForTag(tag);
           return (
-            <div key={tag} className="individual-chart">
-              <h3 className="chart-title" style={{ color: COLORS[colorIndex % COLORS.length] }}>
-                {tag}
-              </h3>
-              <ResponsiveContainer width="100%" height={250}>
-                <LineChart data={chartData}>
-                  <CartesianGrid strokeDasharray="3 3" />
-                  <XAxis 
-                    dataKey="step" 
-                    label={{ value: 'Step', position: 'insideBottom', offset: -5 }}
-                  />
-                  <YAxis 
-                    label={{ value: 'Value', angle: -90, position: 'insideLeft' }}
-                  />
-                  <Tooltip />
-                  <Line 
-                    type="monotone" 
-                    dataKey="value"
-                    stroke={COLORS[colorIndex % COLORS.length]}
-                    name={tag}
-                    dot={{ r: 2 }}
-                    connectNulls
-                  />
-                </LineChart>
-              </ResponsiveContainer>
+            <div key={tag} className="collapsible-chart">
+              <div 
+                className="chart-title-bar" 
+                onClick={() => toggleCollapse(tag)}
+                style={{ borderLeftColor: COLORS[index % COLORS.length] }}
+              >
+                <span className="collapse-icon">{isCollapsed ? '▶' : '▼'}</span>
+                <h3 className="chart-title" style={{ color: COLORS[index % COLORS.length] }}>
+                  {tag}
+                </h3>
+              </div>
+              {!isCollapsed && (
+                <div className="chart-content">
+                  <ResponsiveContainer width="100%" height={250}>
+                    <LineChart data={chartData}>
+                      <CartesianGrid strokeDasharray="3 3" />
+                      <XAxis 
+                        dataKey="step" 
+                        label={{ value: 'Step', position: 'insideBottom', offset: -5 }}
+                      />
+                      <YAxis 
+                        label={{ value: 'Value', angle: -90, position: 'insideLeft' }}
+                      />
+                      <Tooltip />
+                      <Line 
+                        type="monotone" 
+                        dataKey="value"
+                        stroke={COLORS[index % COLORS.length]}
+                        name={tag}
+                        dot={{ r: 2 }}
+                        connectNulls
+                      />
+                    </LineChart>
+                  </ResponsiveContainer>
+                </div>
+              )}
             </div>
           );
         })}
       </div>
-      {selectedTagsArray.length === 0 && (
-        <div className="no-selection">Select metrics to display charts</div>
+      {tags.length === 0 && (
+        <div className="no-selection">No scalar metrics available</div>
       )}
     </div>
   );
