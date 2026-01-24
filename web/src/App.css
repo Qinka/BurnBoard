@@ -9,13 +9,8 @@
   --primary-orange-light: #FF9800;
   --primary-orange-dark: #E65100;
 
-  /* Background Colors - Dark Mode */
-  --bg-primary: #1a1a1a;
-  --bg-secondary: #242424;
-  --bg-surface: #2d2d2d;
-  --bg-surface-hover: #383838;
-  --bg-surface-elevated: #333333;
 
+/* Visualization Controls */
   /* Text Colors - Dark Mode */
   --text-primary: #ffffff;
   --text-secondary: #b0b0b0;
@@ -85,13 +80,7 @@
   box-shadow: var(--shadow-md);
   flex-shrink: 0;
 }
-
-.header-brand {
-  display: flex;
-  align-items: center;
-  gap: 0.75rem;
-}
-
+/* Visualization Controls */
 .header-brand .logo {
   font-size: 1.75rem;
 }
@@ -226,14 +215,8 @@
 .app-body {
   display: flex;
   flex: 1;
-  margin-top: 70px; /* Height of fixed header */
-  height: calc(100vh - 70px);
-  overflow: hidden;
 }
-
-/* ============================================
-   Sidebar Navigation
-   ============================================ */
+/* Visualization Controls */
 
 .app-sidebar {
   width: 200px;
@@ -842,6 +825,90 @@
   display: none; /* Hide footer when using fixed layout */
 }
 
+/* Visualization Controls */
+.visualization-controls {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 1.5rem;
+  align-items: center;
+  justify-content: flex-start;
+  padding: 1rem;
+  margin-bottom: 1.5rem;
+  background-color: rgba(255, 255, 255, 0.05);
+  border-radius: 8px;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.control-group {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  flex-wrap: wrap;
+}
+
+.control-label {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  color: #ccc;
+  font-size: 0.9rem;
+  white-space: nowrap;
+}
+
+.smoothing-slider {
+  width: 120px;
+  height: 6px;
+  cursor: pointer;
+  accent-color: #646cff;
+}
+
+.axis-selector {
+  padding: 0.35rem 0.75rem;
+  font-size: 0.9rem;
+  border-radius: 4px;
+  border: 1px solid #646cff;
+  background-color: #242424;
+  color: white;
+  cursor: pointer;
+}
+
+.axis-selector:hover {
+  border-color: #8a8fff;
+}
+
+.show-smoothed-toggle {
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+  cursor: pointer;
+  color: #ff7f0e;
+  font-size: 0.85rem;
+}
+
+.show-smoothed-toggle input {
+  cursor: pointer;
+  width: 14px;
+  height: 14px;
+  accent-color: #ff7f0e;
+}
+
+.download-btn {
+  margin-left: auto;
+  padding: 0.35rem 0.75rem;
+  font-size: 0.8rem;
+  border: 1px solid #4CAF50;
+  background-color: transparent;
+  color: #4CAF50;
+  border-radius: 4px;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.download-btn:hover {
+  background-color: #4CAF50;
+  color: white;
+}
+
 /* ============================================
    Light Mode Support
    ============================================ */
@@ -975,5 +1042,34 @@
 
   .histogram-info-item strong {
     color: #213547;
+  }
+
+  .visualization-controls {
+    background-color: rgba(0, 0, 0, 0.05);
+    border-color: rgba(0, 0, 0, 0.1);
+  }
+
+  .control-label {
+    color: #333;
+  }
+
+  .axis-selector {
+    background-color: white;
+    color: #213547;
+    border-color: #747bff;
+  }
+
+  .show-smoothed-toggle {
+    color: #e86c00;
+  }
+
+  .download-btn {
+    border-color: #3d8b40;
+    color: #3d8b40;
+  }
+
+  .download-btn:hover {
+    background-color: #3d8b40;
+    color: white;
   }
 }
