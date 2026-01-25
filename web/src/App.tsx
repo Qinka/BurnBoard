@@ -11,7 +11,7 @@ function App() {
   const [lastRefresh, setLastRefresh] = useState<Date | null>(null)
   const [runs, setRuns] = useState<string[]>([])
   const [visibleRuns, setVisibleRuns] = useState<Set<string>>(new Set())
-  
+
   const scalarChartRef = useRef<ScalarChartHandle>(null)
   const histogramChartRef = useRef<HistogramChartHandle>(null)
 
@@ -71,7 +71,7 @@ function App() {
   // Update document title based on active tab
   useEffect(() => {
     const tabName = activeTab === 'scalars' ? 'Scalars' : 'Histograms'
-    document.title = `${tabName} - 🔥 BurnBoard`
+    document.title = `${tabName} - BurnBoard`
   }, [activeTab])
 
   return (
@@ -83,9 +83,9 @@ function App() {
           <h1>BurnBoard</h1>
           <span className="tagline">TensorBoard-compatible visualization</span>
         </div>
-        
+
         <div className="refresh-controls">
-          <button 
+          <button
             className="refresh-button"
             onClick={handleRefresh}
             title="Refresh data"
@@ -120,7 +120,7 @@ function App() {
           )}
         </div>
       </header>
-      
+
       {/* Main Body - Sidebar + Content */}
       <div className="app-body">
         {/* Sidebar Navigation */}
@@ -133,8 +133,8 @@ function App() {
                 {runs.map((run, index) => {
                   const isVisible = visibleRuns.has(run)
                   return (
-                    <label 
-                      key={run} 
+                    <label
+                      key={run}
                       className={`run-item run-item-toggle ${isVisible ? 'run-visible' : 'run-hidden'}`}
                     >
                       <input
@@ -143,8 +143,8 @@ function App() {
                         onChange={() => toggleRunVisibility(run)}
                         className="run-checkbox"
                       />
-                      <span 
-                        className="run-color-dot" 
+                      <span
+                        className="run-color-dot"
                         style={{ backgroundColor: isVisible ? getRunColor(index) : '#666' }}
                       />
                       <span className="run-name">{run}</span>
@@ -154,17 +154,17 @@ function App() {
               </div>
             </div>
           )}
-          
+
           {/* Navigation - at the bottom */}
           <nav className="sidebar-nav">
-            <button 
+            <button
               className={`nav-item ${activeTab === 'scalars' ? 'active' : ''}`}
               onClick={() => setActiveTab('scalars')}
             >
               <span className="nav-icon">📈</span>
               Scalars
             </button>
-            <button 
+            <button
               className={`nav-item ${activeTab === 'histograms' ? 'active' : ''}`}
               onClick={() => setActiveTab('histograms')}
             >
@@ -173,14 +173,14 @@ function App() {
             </button>
           </nav>
         </aside>
-        
+
         {/* Main Content Area */}
         <main className="app-main">
           {activeTab === 'scalars' && <ScalarChart ref={scalarChartRef} onRunsChange={handleRunsChange} visibleRuns={visibleRuns} />}
           {activeTab === 'histograms' && <HistogramChart ref={histogramChartRef} onRunsChange={handleRunsChange} visibleRuns={visibleRuns} />}
         </main>
       </div>
-      
+
       {/* Footer */}
       <footer className="app-footer">
         <p>BurnBoard — Open Source TensorBoard Alternative</p>
