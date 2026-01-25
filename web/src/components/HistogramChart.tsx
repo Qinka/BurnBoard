@@ -9,6 +9,7 @@ import {
   ResponsiveContainer,
   Legend,
 } from 'recharts';
+import { ChartSize, CHART_HEIGHTS, getHistogramAutoHeight } from '../types/chartTypes';
 
 interface HistogramData {
   tag: string;
@@ -34,6 +35,10 @@ export interface HistogramChartHandle {
   refresh: () => void;
 }
 
+interface HistogramChartProps {
+  chartSize?: ChartSize;
+}
+
 // Color palette for different runs
 const RUN_COLORS = [
   '#1f77b4', // blue
@@ -54,7 +59,7 @@ const getRunColor = (index: number): string => {
 // TensorBoard-style orange color for all metrics
 const CHART_COLOR = '#FF6F00'; // Primary orange
 
-const HistogramChart = forwardRef<HistogramChartHandle>(function HistogramChart(_props, ref) {
+const HistogramChart = forwardRef<HistogramChartHandle, HistogramChartProps>(function HistogramChart({ chartSize = 'medium' }, ref) {
   const [data, setData] = useState<HistogramData[]>([]);
   const [tags, setTags] = useState<string[]>([]);
   const [runs, setRuns] = useState<string[]>([]);
@@ -215,7 +220,11 @@ const HistogramChart = forwardRef<HistogramChartHandle>(function HistogramChart(
               </div>
               {!isCollapsed && (
                 <div className="chart-content" id={`histogram-content-${tag.replace(/\//g, '-')}`}>
-                  <ResponsiveContainer width="100%" height={250}>
+                  <ResponsiveContainer width="100%" height={
+                    chartSize === 'auto' 
+                      ? getHistogramAutoHeight() 
+                      : CHART_HEIGHTS[chartSize] as number
+                  }>
                     <BarChart data={chartData}>
                       <CartesianGrid strokeDasharray="3 3" />
                       <XAxis dataKey="name" />

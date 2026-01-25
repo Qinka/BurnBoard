@@ -9,6 +9,7 @@ import {
   ResponsiveContainer,
   Legend,
 } from 'recharts';
+import { ChartSize, CHART_HEIGHTS, getAutoHeight } from '../types/chartTypes';
 
 interface ScalarData {
   tag: string;
@@ -31,6 +32,10 @@ export interface ScalarChartHandle {
   refresh: () => void;
 }
 
+interface ScalarChartProps {
+  chartSize?: ChartSize;
+}
+
 // Color palette for different runs
 const RUN_COLORS = [
   '#1f77b4', // blue
@@ -51,7 +56,7 @@ const getRunColor = (index: number): string => {
 // TensorBoard-style orange color for all metrics
 const CHART_COLOR = '#FF6F00'; // Primary orange
 
-const ScalarChart = forwardRef<ScalarChartHandle>(function ScalarChart(_props, ref) {
+const ScalarChart = forwardRef<ScalarChartHandle, ScalarChartProps>(function ScalarChart({ chartSize = 'medium' }, ref) {
   const [data, setData] = useState<ScalarData[]>([]);
   const [tags, setTags] = useState<string[]>([]);
   const [runs, setRuns] = useState<string[]>([]);
@@ -188,7 +193,11 @@ const ScalarChart = forwardRef<ScalarChartHandle>(function ScalarChart(_props, r
               </div>
               {!isCollapsed && (
                 <div className="chart-content" id={`chart-content-${tag.replace(/\//g, '-')}`}>
-                  <ResponsiveContainer width="100%" height={250}>
+                  <ResponsiveContainer width="100%" height={
+                    chartSize === 'auto' 
+                      ? getAutoHeight(chartData.length) 
+                      : CHART_HEIGHTS[chartSize] as number
+                  }>
                     <LineChart data={chartData}>
                       <CartesianGrid strokeDasharray="3 3" />
                       <XAxis
@@ -200,7 +209,7 @@ const ScalarChart = forwardRef<ScalarChartHandle>(function ScalarChart(_props, r
                       />
                       <Tooltip />
                       {tagRuns.length > 1 && <Legend />}
-                      {tagRuns.map((run, index) => (
+                      {tagRuns.map((run) => (
                         <Line
                           key={run}
                           type="monotone"
