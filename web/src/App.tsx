@@ -125,24 +125,7 @@ function App() {
       <div className="app-body">
         {/* Sidebar Navigation */}
         <aside className="app-sidebar">
-          <nav className="sidebar-nav">
-            <button 
-              className={`nav-item ${activeTab === 'scalars' ? 'active' : ''}`}
-              onClick={() => setActiveTab('scalars')}
-            >
-              <span className="nav-icon">📈</span>
-              Scalars
-            </button>
-            <button 
-              className={`nav-item ${activeTab === 'histograms' ? 'active' : ''}`}
-              onClick={() => setActiveTab('histograms')}
-            >
-              <span className="nav-icon">📊</span>
-              Histograms
-            </button>
-          </nav>
-          
-          {/* Runs Legend in Sidebar */}
+          {/* Runs Legend in Sidebar - at the top */}
           {runs.length > 0 && (
             <div className="sidebar-runs">
               <h4 className="sidebar-section-title">Runs</h4>
@@ -171,6 +154,24 @@ function App() {
               </div>
             </div>
           )}
+          
+          {/* Navigation - at the bottom */}
+          <nav className="sidebar-nav">
+            <button 
+              className={`nav-item ${activeTab === 'scalars' ? 'active' : ''}`}
+              onClick={() => setActiveTab('scalars')}
+            >
+              <span className="nav-icon">📈</span>
+              Scalars
+            </button>
+            <button 
+              className={`nav-item ${activeTab === 'histograms' ? 'active' : ''}`}
+              onClick={() => setActiveTab('histograms')}
+            >
+              <span className="nav-icon">📊</span>
+              Histograms
+            </button>
+          </nav>
         </aside>
         
         {/* Main Content Area */}
