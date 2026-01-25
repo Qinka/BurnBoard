@@ -1,6 +1,7 @@
 import { useState, useRef, useEffect, useCallback } from 'react'
 import ScalarChart, { ScalarChartHandle } from './components/ScalarChart'
 import HistogramChart, { HistogramChartHandle } from './components/HistogramChart'
+import { getRunColor } from './utils/colors'
 import './App.css'
 
 function App() {
@@ -8,6 +9,7 @@ function App() {
   const [autoRefresh, setAutoRefresh] = useState(true)
   const [refreshInterval, setRefreshInterval] = useState(5)
   const [lastRefresh, setLastRefresh] = useState<Date | null>(null)
+  const [runs, setRuns] = useState<string[]>([])
   
   const scalarChartRef = useRef<ScalarChartHandle>(null)
   const histogramChartRef = useRef<HistogramChartHandle>(null)
@@ -99,12 +101,30 @@ function App() {
               Histograms
             </button>
           </nav>
+          
+          {/* Runs Legend in Sidebar */}
+          {runs.length > 0 && (
+            <div className="sidebar-runs">
+              <h4 className="sidebar-section-title">Runs</h4>
+              <div className="runs-list">
+                {runs.map((run, index) => (
+                  <div key={run} className="run-item">
+                    <span 
+                      className="run-color-dot" 
+                      style={{ backgroundColor: getRunColor(index) }}
+                    />
+                    <span className="run-name">{run}</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
         </aside>
         
         {/* Main Content Area */}
         <main className="app-main">
-          {activeTab === 'scalars' && <ScalarChart ref={scalarChartRef} />}
-          {activeTab === 'histograms' && <HistogramChart ref={histogramChartRef} />}
+          {activeTab === 'scalars' && <ScalarChart ref={scalarChartRef} onRunsChange={setRuns} />}
+          {activeTab === 'histograms' && <HistogramChart ref={histogramChartRef} onRunsChange={setRuns} />}
         </main>
       </div>
       

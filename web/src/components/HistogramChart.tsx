@@ -11,6 +11,7 @@ import {
 } from 'recharts';
 import ResizableChart from './ResizableChart';
 import { groupTagsByPrefix, getShortTagName } from '../utils/tagGrouping';
+import { getRunColor } from '../utils/colors';
 
 interface HistogramData {
   tag: string;
@@ -32,29 +33,15 @@ interface MultiRunHistogramChartData {
   [runName: string]: number | string | undefined;
 }
 
+interface HistogramChartProps {
+  onRunsChange?: (runs: string[]) => void;
+}
+
 export interface HistogramChartHandle {
   refresh: () => void;
 }
 
-// Color palette for different runs
-const RUN_COLORS = [
-  '#1f77b4', // blue
-  '#ff7f0e', // orange
-  '#2ca02c', // green
-  '#d62728', // red
-  '#9467bd', // purple
-  '#8c564b', // brown
-  '#e377c2', // pink
-  '#7f7f7f', // gray
-  '#bcbd22', // olive
-  '#17becf', // cyan
-];
-
-const getRunColor = (index: number): string => {
-  return RUN_COLORS[index % RUN_COLORS.length];
-};
-
-const HistogramChart = forwardRef<HistogramChartHandle>(function HistogramChart(_props, ref) {
+const HistogramChart = forwardRef<HistogramChartHandle, HistogramChartProps>(function HistogramChart({ onRunsChange }, ref) {
   const [data, setData] = useState<HistogramData[]>([]);
   const [tags, setTags] = useState<string[]>([]);
   const [runs, setRuns] = useState<string[]>([]);
@@ -95,6 +82,13 @@ const HistogramChart = forwardRef<HistogramChartHandle>(function HistogramChart(
     fetchHistograms();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  // Notify parent when runs change
+  useEffect(() => {
+    if (onRunsChange) {
+      onRunsChange(runs);
+    }
+  }, [runs, onRunsChange]);
 
   // Expose refresh method to parent
   useImperativeHandle(ref, () => ({
@@ -182,24 +176,7 @@ const HistogramChart = forwardRef<HistogramChartHandle>(function HistogramChart(
   }
 
   return (
-    <div className="chart-container">
-      <div className="chart-header">
-        <h2>Histogram Statistics</h2>
-        {runs.length > 1 && (
-          <div className="runs-legend">
-            <span className="runs-label">Runs: </span>
-            {runs.map((run, index) => (
-              <span
-                key={run}
-                className="run-badge"
-                style={{ backgroundColor: getRunColor(index) }}
-              >
-                {run}
-              </span>
-            ))}
-          </div>
-        )}
-      </div>
+    <div className="chart-content-area">
       {/* Display histograms grouped by "/" prefix */}
       <div className="charts-list">
         {tagGroups.map((group) => {

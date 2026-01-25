@@ -62,7 +62,8 @@
 .app {
   display: flex;
   flex-direction: column;
-  min-height: 100vh;
+  height: 100vh;
+  overflow: hidden;
 }
 
 /* ============================================
@@ -76,10 +77,13 @@
   display: flex;
   justify-content: space-between;
   align-items: center;
-  position: sticky;
+  position: fixed;
   top: 0;
+  left: 0;
+  right: 0;
   z-index: 100;
   box-shadow: var(--shadow-md);
+  flex-shrink: 0;
 }
 
 .header-brand {
@@ -222,6 +226,9 @@
 .app-body {
   display: flex;
   flex: 1;
+  margin-top: 70px; /* Height of fixed header */
+  height: calc(100vh - 70px);
+  overflow: hidden;
 }
 
 /* ============================================
@@ -234,6 +241,12 @@
   border-right: 1px solid var(--border-subtle);
   padding: 1.5rem 0;
   flex-shrink: 0;
+  position: fixed;
+  left: 0;
+  top: 70px;
+  bottom: 0;
+  overflow-y: auto;
+  z-index: 50;
 }
 
 .sidebar-nav {
@@ -276,6 +289,57 @@
   text-align: center;
 }
 
+/* Sidebar Runs Section */
+.sidebar-runs {
+  margin-top: 1.5rem;
+  padding: 0 1rem;
+  border-top: 1px solid var(--border-subtle);
+  padding-top: 1rem;
+}
+
+.sidebar-section-title {
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  margin: 0 0 0.75rem 0.5rem;
+}
+
+.runs-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.run-item {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.375rem 0.5rem;
+  border-radius: 4px;
+  transition: background-color 0.2s ease;
+}
+
+.run-item:hover {
+  background-color: var(--bg-surface-hover);
+}
+
+.run-color-dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+.run-name {
+  font-size: 0.8rem;
+  color: var(--text-secondary);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
 /* ============================================
    Main Content Area
    ============================================ */
@@ -285,6 +349,16 @@
   padding: 1.5rem 2rem;
   overflow-y: auto;
   background-color: var(--bg-primary);
+  margin-left: 200px; /* Width of fixed sidebar */
+}
+
+/* Chart content area (replaces chart-container) */
+.chart-content-area {
+  background-color: var(--bg-surface);
+  border-radius: 8px;
+  border: 1px solid var(--border-subtle);
+  box-shadow: var(--shadow-sm);
+  overflow: hidden;
 }
 
 /* ============================================
@@ -744,16 +818,7 @@
    ============================================ */
 
 .app-footer {
-  padding: 1rem 2rem;
-  text-align: center;
-  border-top: 1px solid var(--border-subtle);
-  background-color: var(--bg-secondary);
-  color: var(--text-muted);
-  font-size: 0.8125rem;
-}
-
-.app-footer p {
-  margin: 0;
+  display: none; /* Hide footer when using fixed layout */
 }
 
 /* ============================================
@@ -808,8 +873,8 @@
   .app-sidebar {
     position: fixed;
     left: -200px;
-    top: 0;
-    height: 100vh;
+    top: 70px;
+    bottom: 0;
     z-index: 200;
     transition: left 0.3s ease;
   }
@@ -820,6 +885,7 @@
 
   .app-main {
     padding: 1rem;
+    margin-left: 0;
   }
 
   .charts-grid {
