@@ -121,12 +121,27 @@ function App() {
         </div>
       </header>
 
+      {/* Tab Navigation - Below Header */}
+      <nav className="header-tabs">
+        <button
+          className={`header-tab ${activeTab === 'scalars' ? 'active' : ''}`}
+          onClick={() => setActiveTab('scalars')}
+        >
+          Scalars
+        </button>
+        <button
+          className={`header-tab ${activeTab === 'histograms' ? 'active' : ''}`}
+          onClick={() => setActiveTab('histograms')}
+        >
+          Histograms
+        </button>
+      </nav>
+
       {/* Main Body - Sidebar + Content */}
       <div className="app-body">
-        {/* Sidebar Navigation */}
-        <aside className="app-sidebar">
-          {/* Runs Legend in Sidebar - at the top */}
-          {runs.length > 0 && (
+        {/* Sidebar for Runs */}
+        {runs.length > 0 && (
+          <aside className="app-sidebar">
             <div className="sidebar-runs">
               <h4 className="sidebar-section-title">Runs</h4>
               <div className="runs-list">
@@ -153,29 +168,11 @@ function App() {
                 })}
               </div>
             </div>
-          )}
-
-          {/* Navigation - at the bottom */}
-          <nav className="sidebar-nav">
-            <button
-              className={`nav-item ${activeTab === 'scalars' ? 'active' : ''}`}
-              onClick={() => setActiveTab('scalars')}
-            >
-              <span className="nav-icon">📈</span>
-              Scalars
-            </button>
-            <button
-              className={`nav-item ${activeTab === 'histograms' ? 'active' : ''}`}
-              onClick={() => setActiveTab('histograms')}
-            >
-              <span className="nav-icon">📊</span>
-              Histograms
-            </button>
-          </nav>
-        </aside>
+          </aside>
+        )}
 
         {/* Main Content Area */}
-        <main className="app-main">
+        <main className={`app-main ${runs.length === 0 ? 'no-sidebar' : ''}`}>
           {activeTab === 'scalars' && <ScalarChart ref={scalarChartRef} onRunsChange={handleRunsChange} visibleRuns={visibleRuns} />}
           {activeTab === 'histograms' && <HistogramChart ref={histogramChartRef} onRunsChange={handleRunsChange} visibleRuns={visibleRuns} />}
         </main>
