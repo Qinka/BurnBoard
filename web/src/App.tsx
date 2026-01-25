@@ -76,66 +76,67 @@ function App() {
 
   return (
     <div className="app">
-      {/* Header - Centered TensorBoard Style */}
+      {/* Header - Horizontal Layout: Left (Title) | Center (Tabs) | Right (Controls) */}
       <header className="app-header">
-        <div className="header-content">
+        {/* Left: Brand */}
+        <div className="header-left">
           <div className="header-brand">
             <span className="logo">🔥</span>
             <h1>BurnBoard</h1>
           </div>
-          <span className="tagline">TensorBoard-compatible visualization dashboard</span>
+          <span className="tagline">TensorBoard-compatible visualization</span>
+        </div>
 
-          <div className="refresh-controls">
-            <button
-              className="refresh-button"
-              onClick={handleRefresh}
-              title="Refresh data"
-            >
-              🔄 Refresh
-            </button>
-            <label className="auto-refresh-toggle">
-              <input
-                type="checkbox"
-                checked={autoRefresh}
-                onChange={(e) => setAutoRefresh(e.target.checked)}
-              />
-              Auto-refresh
-            </label>
-            <label className="interval-selector">
-              Interval:
-              <select
-                value={refreshInterval}
-                onChange={(e) => setRefreshInterval(Number(e.target.value))}
-                disabled={!autoRefresh}
-              >
-                <option value={1}>1s</option>
-                <option value={5}>5s</option>
-                <option value={10}>10s</option>
-                <option value={30}>30s</option>
-                <option value={60}>60s</option>
-              </select>
-            </label>
-            {lastRefresh && (
-              <span className="last-refresh">
-                Last: {lastRefresh.toLocaleTimeString()}
-              </span>
-            )}
-          </div>
+        {/* Center: Tab Navigation */}
+        <nav className="header-tabs">
+          <button
+            className={`header-tab ${activeTab === 'scalars' ? 'active' : ''}`}
+            onClick={() => setActiveTab('scalars')}
+          >
+            Scalars
+          </button>
+          <button
+            className={`header-tab ${activeTab === 'histograms' ? 'active' : ''}`}
+            onClick={() => setActiveTab('histograms')}
+          >
+            Histograms
+          </button>
+        </nav>
 
-          <nav className="header-tabs">
-            <button
-              className={`header-tab ${activeTab === 'scalars' ? 'active' : ''}`}
-              onClick={() => setActiveTab('scalars')}
-            >
-              Scalars
-            </button>
-            <button
-              className={`header-tab ${activeTab === 'histograms' ? 'active' : ''}`}
-              onClick={() => setActiveTab('histograms')}
-            >
-              Histograms
-            </button>
-          </nav>
+        {/* Right: Refresh Controls */}
+        <div className="header-right">
+          <button
+            className="refresh-button"
+            onClick={handleRefresh}
+            title="Refresh data"
+          >
+            ↻ Refresh
+          </button>
+          <label className="auto-refresh-toggle">
+            <input
+              type="checkbox"
+              checked={autoRefresh}
+              onChange={(e) => setAutoRefresh(e.target.checked)}
+            />
+            Auto
+          </label>
+          <select
+            className="interval-select"
+            value={refreshInterval}
+            onChange={(e) => setRefreshInterval(Number(e.target.value))}
+            disabled={!autoRefresh}
+          >
+            <option value={1}>1s</option>
+            <option value={5}>5s</option>
+            <option value={10}>10s</option>
+            <option value={30}>30s</option>
+            <option value={60}>60s</option>
+          </select>
+          {lastRefresh && (
+            <span className="last-refresh">
+              {lastRefresh.toLocaleTimeString()}
+            </span>
+          )}
         </div>
       </header>
 
