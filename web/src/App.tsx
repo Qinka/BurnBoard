@@ -10,9 +10,43 @@ function App() {
   const [refreshInterval, setRefreshInterval] = useState(5)
   const [lastRefresh, setLastRefresh] = useState<Date | null>(null)
   const [runs, setRuns] = useState<string[]>([])
+  const [visibleRuns, setVisibleRuns] = useState<Set<string>>(new Set())
   
   const scalarChartRef = useRef<ScalarChartHandle>(null)
   const histogramChartRef = useRef<HistogramChartHandle>(null)
+
+  // When runs change, make all runs visible by default
+  const handleRunsChange = useCallback((newRuns: string[]) => {
+    setRuns(newRuns)
+    setVisibleRuns(prev => {
+      // Add new runs to visible set, keep existing visibility state
+      const updated = new Set(prev)
+      newRuns.forEach(run => {
+        if (!prev.has(run) && !runs.includes(run)) {
+          // This is a new run, make it visible by default
+          updated.add(run)
+        }
+      })
+      // If this is the first load, make all visible
+      if (prev.size === 0 && newRuns.length > 0) {
+        return new Set(newRuns)
+      }
+      return updated
+    })
+  }, [runs])
+
+  // Toggle run visibility
+  const toggleRunVisibility = (run: string) => {
+    setVisibleRuns(prev => {
+      const updated = new Set(prev)
+      if (updated.has(run)) {
+        updated.delete(run)
+      } else {
+        updated.add(run)
+      }
+      return updated
+    })
+  }
 
   const handleRefresh = useCallback(() => {
     if (activeTab === 'scalars' && scalarChartRef.current) {
@@ -107,15 +141,27 @@ function App() {
             <div className="sidebar-runs">
               <h4 className="sidebar-section-title">Runs</h4>
               <div className="runs-list">
-                {runs.map((run, index) => (
-                  <div key={run} className="run-item">
-                    <span 
-                      className="run-color-dot" 
-                      style={{ backgroundColor: getRunColor(index) }}
-                    />
-                    <span className="run-name">{run}</span>
-                  </div>
-                ))}
+                {runs.map((run, index) => {
+                  const isVisible = visibleRuns.has(run)
+                  return (
+                    <label 
+                      key={run} 
+                      className={`run-item run-item-toggle ${isVisible ? 'run-visible' : 'run-hidden'}`}
+                    >
+                      <input
+                        type="checkbox"
+                        checked={isVisible}
+                        onChange={() => toggleRunVisibility(run)}
+                        className="run-checkbox"
+                      />
+                      <span 
+                        className="run-color-dot" 
+                        style={{ backgroundColor: isVisible ? getRunColor(index) : '#666' }}
+                      />
+                      <span className="run-name">{run}</span>
+                    </label>
+                  )
+                })}
               </div>
             </div>
           )}
@@ -123,8 +169,8 @@ function App() {
         
         {/* Main Content Area */}
         <main className="app-main">
-          {activeTab === 'scalars' && <ScalarChart ref={scalarChartRef} onRunsChange={setRuns} />}
-          {activeTab === 'histograms' && <HistogramChart ref={histogramChartRef} onRunsChange={setRuns} />}
+          {activeTab === 'scalars' && <ScalarChart ref={scalarChartRef} onRunsChange={handleRunsChange} visibleRuns={visibleRuns} />}
+          {activeTab === 'histograms' && <HistogramChart ref={histogramChartRef} onRunsChange={handleRunsChange} visibleRuns={visibleRuns} />}
         </main>
       </div>
       

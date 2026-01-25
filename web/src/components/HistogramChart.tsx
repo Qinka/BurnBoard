@@ -35,13 +35,14 @@ interface MultiRunHistogramChartData {
 
 interface HistogramChartProps {
   onRunsChange?: (runs: string[]) => void;
+  visibleRuns?: Set<string>;
 }
 
 export interface HistogramChartHandle {
   refresh: () => void;
 }
 
-const HistogramChart = forwardRef<HistogramChartHandle, HistogramChartProps>(function HistogramChart({ onRunsChange }, ref) {
+const HistogramChart = forwardRef<HistogramChartHandle, HistogramChartProps>(function HistogramChart({ onRunsChange, visibleRuns }, ref) {
   const [data, setData] = useState<HistogramData[]>([]);
   const [tags, setTags] = useState<string[]>([]);
   const [runs, setRuns] = useState<string[]>([]);
@@ -128,10 +129,15 @@ const HistogramChart = forwardRef<HistogramChartHandle, HistogramChartProps>(fun
     );
   };
 
-  // Get runs that have data for a specific tag
+  // Get runs that have data for a specific tag (filtered by visibility)
   const getRunsForTag = (tag: string): string[] => {
     const tagData = data.filter(item => item.tag === tag);
-    return [...new Set(tagData.map(item => item.run))].sort();
+    const allRuns = [...new Set(tagData.map(item => item.run))].sort();
+    // Filter by visible runs if provided
+    if (visibleRuns && visibleRuns.size > 0) {
+      return allRuns.filter(run => visibleRuns.has(run));
+    }
+    return allRuns;
   };
 
   // Get chart data for a specific tag with multiple runs
