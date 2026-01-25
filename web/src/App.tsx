@@ -76,66 +76,68 @@ function App() {
 
   return (
     <div className="app">
-      {/* Header - TensorBoard Style */}
+      {/* Header - Centered TensorBoard Style */}
       <header className="app-header">
-        <div className="header-brand">
-          <span className="logo">🔥</span>
-          <h1>BurnBoard</h1>
-          <span className="tagline">TensorBoard-compatible visualization</span>
-        </div>
+        <div className="header-content">
+          <div className="header-brand">
+            <span className="logo">🔥</span>
+            <h1>BurnBoard</h1>
+          </div>
+          <span className="tagline">TensorBoard-compatible visualization dashboard</span>
 
-        <div className="refresh-controls">
-          <button
-            className="refresh-button"
-            onClick={handleRefresh}
-            title="Refresh data"
-          >
-            ↻ Refresh
-          </button>
-          <label className="auto-refresh-toggle">
-            <input
-              type="checkbox"
-              checked={autoRefresh}
-              onChange={(e) => setAutoRefresh(e.target.checked)}
-            />
-            Auto
-          </label>
-          <label className="interval-selector">
-            <select
-              value={refreshInterval}
-              onChange={(e) => setRefreshInterval(Number(e.target.value))}
-              disabled={!autoRefresh}
+          <div className="refresh-controls">
+            <button
+              className="refresh-button"
+              onClick={handleRefresh}
+              title="Refresh data"
             >
-              <option value={1}>1s</option>
-              <option value={5}>5s</option>
-              <option value={10}>10s</option>
-              <option value={30}>30s</option>
-              <option value={60}>60s</option>
-            </select>
-          </label>
-          {lastRefresh && (
-            <span className="last-refresh">
-              {lastRefresh.toLocaleTimeString()}
-            </span>
-          )}
+              🔄 Refresh
+            </button>
+            <label className="auto-refresh-toggle">
+              <input
+                type="checkbox"
+                checked={autoRefresh}
+                onChange={(e) => setAutoRefresh(e.target.checked)}
+              />
+              Auto-refresh
+            </label>
+            <label className="interval-selector">
+              Interval:
+              <select
+                value={refreshInterval}
+                onChange={(e) => setRefreshInterval(Number(e.target.value))}
+                disabled={!autoRefresh}
+              >
+                <option value={1}>1s</option>
+                <option value={5}>5s</option>
+                <option value={10}>10s</option>
+                <option value={30}>30s</option>
+                <option value={60}>60s</option>
+              </select>
+            </label>
+            {lastRefresh && (
+              <span className="last-refresh">
+                Last: {lastRefresh.toLocaleTimeString()}
+              </span>
+            )}
+          </div>
+
+          <nav className="header-tabs">
+            <button
+              className={`header-tab ${activeTab === 'scalars' ? 'active' : ''}`}
+              onClick={() => setActiveTab('scalars')}
+            >
+              Scalars
+            </button>
+            <button
+              className={`header-tab ${activeTab === 'histograms' ? 'active' : ''}`}
+              onClick={() => setActiveTab('histograms')}
+            >
+              Histograms
+            </button>
+          </nav>
         </div>
       </header>
-
-      {/* Tab Navigation - Below Header */}
-      <nav className="header-tabs">
-        <button
-          className={`header-tab ${activeTab === 'scalars' ? 'active' : ''}`}
-          onClick={() => setActiveTab('scalars')}
-        >
-          Scalars
-        </button>
-        <button
-          className={`header-tab ${activeTab === 'histograms' ? 'active' : ''}`}
-          onClick={() => setActiveTab('histograms')}
-        >
-          Histograms
-        </button>
-      </nav>
 
       {/* Main Body - Sidebar + Content */}
       <div className="app-body">
