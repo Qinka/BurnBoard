@@ -387,6 +387,75 @@
 }
 
 /* ============================================
+   Resizable Chart
+   ============================================ */
+
+.resizable-chart-wrapper {
+  position: relative;
+}
+
+.resizable-chart-content {
+  /* Content area */
+}
+
+.resize-handle {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  height: 20px;
+  background: linear-gradient(180deg, var(--bg-surface-elevated) 0%, var(--bg-surface) 100%);
+  border-top: 1px solid var(--border-subtle);
+  cursor: ns-resize;
+  user-select: none;
+  transition: background-color 0.2s ease;
+}
+
+.resize-handle:hover {
+  background: linear-gradient(180deg, var(--bg-surface-hover) 0%, var(--bg-surface) 100%);
+}
+
+.resize-handle.resizing {
+  background-color: rgba(255, 111, 0, 0.1);
+  border-top-color: var(--primary-orange);
+}
+
+.resize-handle-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--text-muted);
+  font-size: 1rem;
+  letter-spacing: 2px;
+}
+
+.resize-handle-icon span {
+  transform: rotate(90deg);
+  display: inline-block;
+}
+
+.resize-handle-hint {
+  font-size: 0.6875rem;
+  color: var(--text-muted);
+  opacity: 0;
+  transition: opacity 0.2s ease;
+}
+
+.resize-handle:hover .resize-handle-hint,
+.resize-handle.resizing .resize-handle-hint {
+  opacity: 1;
+}
+
+.resize-handle:focus {
+  outline: 2px solid var(--primary-orange);
+  outline-offset: -2px;
+}
+
+.resize-handle:focus .resize-handle-hint {
+  opacity: 1;
+}
+
+/* ============================================
    Charts Grid Layout
    ============================================ */
 
