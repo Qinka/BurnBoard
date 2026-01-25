@@ -1,7 +1,6 @@
 import { useState, useRef, useEffect, useCallback } from 'react'
 import ScalarChart, { ScalarChartHandle } from './components/ScalarChart'
 import HistogramChart, { HistogramChartHandle } from './components/HistogramChart'
-import { ChartSize } from './types/chartTypes'
 import './App.css'
 
 function App() {
@@ -9,7 +8,6 @@ function App() {
   const [autoRefresh, setAutoRefresh] = useState(true)
   const [refreshInterval, setRefreshInterval] = useState(5)
   const [lastRefresh, setLastRefresh] = useState<Date | null>(null)
-  const [chartSize, setChartSize] = useState<ChartSize>('medium')
   
   const scalarChartRef = useRef<ScalarChartHandle>(null)
   const histogramChartRef = useRef<HistogramChartHandle>(null)
@@ -73,18 +71,6 @@ function App() {
               <option value={60}>60s</option>
             </select>
           </label>
-          <label className="chart-size-selector" title="Chart size">
-            <span className="size-icon">📐</span>
-            <select
-              value={chartSize}
-              onChange={(e) => setChartSize(e.target.value as ChartSize)}
-            >
-              <option value="small">Small</option>
-              <option value="medium">Medium</option>
-              <option value="large">Large</option>
-              <option value="auto">Auto</option>
-            </select>
-          </label>
           {lastRefresh && (
             <span className="last-refresh">
               {lastRefresh.toLocaleTimeString()}
@@ -117,8 +103,8 @@ function App() {
         
         {/* Main Content Area */}
         <main className="app-main">
-          {activeTab === 'scalars' && <ScalarChart ref={scalarChartRef} chartSize={chartSize} />}
-          {activeTab === 'histograms' && <HistogramChart ref={histogramChartRef} chartSize={chartSize} />}
+          {activeTab === 'scalars' && <ScalarChart ref={scalarChartRef} />}
+          {activeTab === 'histograms' && <HistogramChart ref={histogramChartRef} />}
         </main>
       </div>
       

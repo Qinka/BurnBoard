@@ -9,7 +9,7 @@ import {
   ResponsiveContainer,
   Legend,
 } from 'recharts';
-import { ChartSize, CHART_HEIGHTS, getHistogramAutoHeight } from '../types/chartTypes';
+import ResizableChart from './ResizableChart';
 
 interface HistogramData {
   tag: string;
@@ -35,10 +35,6 @@ export interface HistogramChartHandle {
   refresh: () => void;
 }
 
-interface HistogramChartProps {
-  chartSize?: ChartSize;
-}
-
 // Color palette for different runs
 const RUN_COLORS = [
   '#1f77b4', // blue
@@ -56,10 +52,8 @@ const RUN_COLORS = [
 const getRunColor = (index: number): string => {
   return RUN_COLORS[index % RUN_COLORS.length];
 };
-// TensorBoard-style orange color for all metrics
-const CHART_COLOR = '#FF6F00'; // Primary orange
 
-const HistogramChart = forwardRef<HistogramChartHandle, HistogramChartProps>(function HistogramChart({ chartSize = 'medium' }, ref) {
+const HistogramChart = forwardRef<HistogramChartHandle>(function HistogramChart(_props, ref) {
   const [data, setData] = useState<HistogramData[]>([]);
   const [tags, setTags] = useState<string[]>([]);
   const [runs, setRuns] = useState<string[]>([]);
@@ -220,27 +214,32 @@ const HistogramChart = forwardRef<HistogramChartHandle, HistogramChartProps>(fun
               </div>
               {!isCollapsed && (
                 <div className="chart-content" id={`histogram-content-${tag.replace(/\//g, '-')}`}>
-                  <ResponsiveContainer width="100%" height={
-                    chartSize === 'auto' 
-                      ? getHistogramAutoHeight() 
-                      : CHART_HEIGHTS[chartSize] as number
-                  }>
-                    <BarChart data={chartData}>
-                      <CartesianGrid strokeDasharray="3 3" />
-                      <XAxis dataKey="name" />
-                      <YAxis />
-                      <Tooltip />
-                      {tagRuns.length > 1 && <Legend />}
-                      {tagRuns.map((run) => (
-                        <Bar
-                          key={run}
-                          dataKey={run}
-                          fill={getRunColor(runs.indexOf(run))}
-                          name={run}
-                        />
-                      ))}
-                    </BarChart>
-                  </ResponsiveContainer>
+                  <ResizableChart
+                    tag={tag}
+                    defaultHeight={250}
+                    minHeight={100}
+                    maxHeight={600}
+                  >
+                    {(height) => (
+                      <ResponsiveContainer width="100%" height={height}>
+                        <BarChart data={chartData}>
+                          <CartesianGrid strokeDasharray="3 3" />
+                          <XAxis dataKey="name" />
+                          <YAxis />
+                          <Tooltip />
+                          {tagRuns.length > 1 && <Legend />}
+                          {tagRuns.map((run) => (
+                            <Bar
+                              key={run}
+                              dataKey={run}
+                              fill={getRunColor(runs.indexOf(run))}
+                              name={run}
+                            />
+                          ))}
+                        </BarChart>
+                      </ResponsiveContainer>
+                    )}
+                  </ResizableChart>
                   <div className="histogram-info-multi">
                     {tagRuns.map((run) => {
                       const histogram = histograms.get(run);
