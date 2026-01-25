@@ -32,13 +32,14 @@ interface MultiRunChartData {
 
 interface ScalarChartProps {
   onRunsChange?: (runs: string[]) => void;
+  visibleRuns?: Set<string>;
 }
 
 export interface ScalarChartHandle {
   refresh: () => void;
 }
 
-const ScalarChart = forwardRef<ScalarChartHandle, ScalarChartProps>(function ScalarChart({ onRunsChange }, ref) {
+const ScalarChart = forwardRef<ScalarChartHandle, ScalarChartProps>(function ScalarChart({ onRunsChange, visibleRuns }, ref) {
   const [data, setData] = useState<ScalarData[]>([]);
   const [tags, setTags] = useState<string[]>([]);
   const [runs, setRuns] = useState<string[]>([]);
@@ -133,10 +134,15 @@ const ScalarChart = forwardRef<ScalarChartHandle, ScalarChartProps>(function Sca
     return Array.from(stepMap.values()).sort((a, b) => a.step - b.step);
   };
 
-  // Get runs that have data for a specific tag
+  // Get runs that have data for a specific tag (filtered by visibility)
   const getRunsForTag = (tag: string): string[] => {
     const tagData = data.filter(item => item.tag === tag);
-    return [...new Set(tagData.map(item => item.run))].sort();
+    const allRuns = [...new Set(tagData.map(item => item.run))].sort();
+    // Filter by visible runs if provided
+    if (visibleRuns && visibleRuns.size > 0) {
+      return allRuns.filter(run => visibleRuns.has(run));
+    }
+    return allRuns;
   };
 
   if (loading) {
