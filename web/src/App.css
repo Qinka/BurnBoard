@@ -9,8 +9,13 @@
   --primary-orange-light: #FF9800;
   --primary-orange-dark: #E65100;
 
+  /* Background Colors - Dark Mode */
+  --bg-primary: #1a1a1a;
+  --bg-secondary: #242424;
+  --bg-surface: #2d2d2d;
+  --bg-surface-hover: #383838;
+  --bg-surface-elevated: #333333;
 
-/* Visualization Controls */
   /* Text Colors - Dark Mode */
   --text-primary: #ffffff;
   --text-secondary: #b0b0b0;
@@ -80,7 +85,13 @@
   box-shadow: var(--shadow-md);
   flex-shrink: 0;
 }
-/* Visualization Controls */
+
+.header-brand {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+}
+
 .header-brand .logo {
   font-size: 1.75rem;
 }
@@ -218,7 +229,10 @@
   margin-top: 80px; /* Account for fixed header height with extra buffer */
   min-height: calc(100vh - 80px);
 }
-/* Visualization Controls */
+
+/* ============================================
+   Sidebar Navigation
+   ============================================ */
 
 .app-sidebar {
   width: 200px;
