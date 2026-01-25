@@ -11,6 +11,7 @@ import {
 } from 'recharts';
 import ResizableChart from './ResizableChart';
 import { groupTagsByPrefix, getShortTagName } from '../utils/tagGrouping';
+import { getRunColor } from '../utils/colors';
 
 interface ScalarData {
   tag: string;
@@ -29,29 +30,15 @@ interface MultiRunChartData {
   [runName: string]: number | undefined;
 }
 
+interface ScalarChartProps {
+  onRunsChange?: (runs: string[]) => void;
+}
+
 export interface ScalarChartHandle {
   refresh: () => void;
 }
 
-// Color palette for different runs
-const RUN_COLORS = [
-  '#1f77b4', // blue
-  '#ff7f0e', // orange
-  '#2ca02c', // green
-  '#d62728', // red
-  '#9467bd', // purple
-  '#8c564b', // brown
-  '#e377c2', // pink
-  '#7f7f7f', // gray
-  '#bcbd22', // olive
-  '#17becf', // cyan
-];
-
-const getRunColor = (index: number): string => {
-  return RUN_COLORS[index % RUN_COLORS.length];
-};
-
-const ScalarChart = forwardRef<ScalarChartHandle>(function ScalarChart(_props, ref) {
+const ScalarChart = forwardRef<ScalarChartHandle, ScalarChartProps>(function ScalarChart({ onRunsChange }, ref) {
   const [data, setData] = useState<ScalarData[]>([]);
   const [tags, setTags] = useState<string[]>([]);
   const [runs, setRuns] = useState<string[]>([]);
@@ -92,6 +79,13 @@ const ScalarChart = forwardRef<ScalarChartHandle>(function ScalarChart(_props, r
     fetchScalars();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  // Notify parent when runs change
+  useEffect(() => {
+    if (onRunsChange) {
+      onRunsChange(runs);
+    }
+  }, [runs, onRunsChange]);
 
   // Expose refresh method to parent
   useImperativeHandle(ref, () => ({
@@ -154,24 +148,7 @@ const ScalarChart = forwardRef<ScalarChartHandle>(function ScalarChart(_props, r
   }
 
   return (
-    <div className="chart-container">
-      <div className="chart-header">
-        <h2>Scalar Values</h2>
-        {runs.length > 1 && (
-          <div className="runs-legend">
-            <span className="runs-label">Runs: </span>
-            {runs.map((run, index) => (
-              <span
-                key={run}
-                className="run-badge"
-                style={{ backgroundColor: getRunColor(index) }}
-              >
-                {run}
-              </span>
-            ))}
-          </div>
-        )}
-      </div>
+    <div className="chart-content-area">
       {/* Display metrics grouped by "/" prefix */}
       <div className="charts-list">
         {tagGroups.map((group) => {
