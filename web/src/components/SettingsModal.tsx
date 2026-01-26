@@ -47,6 +47,7 @@ function SettingsModal({ isOpen, onClose, settings, onSettingsChange }: Settings
       ...localSettings,
       scalarMaxPoints: scalar,
       histogramMaxPoints: histogram,
+      autoAdjust: false, // Disable auto-adjust when user selects a preset
     });
   };
 
@@ -100,6 +101,7 @@ function SettingsModal({ isOpen, onClose, settings, onSettingsChange }: Settings
                     setLocalSettings({
                       ...localSettings,
                       scalarMaxPoints: parseInt(e.target.value) || 200,
+                      autoAdjust: false, // Disable auto-adjust when user manually changes values
                     })
                   }
                 />
@@ -120,6 +122,7 @@ function SettingsModal({ isOpen, onClose, settings, onSettingsChange }: Settings
                     setLocalSettings({
                       ...localSettings,
                       histogramMaxPoints: parseInt(e.target.value) || 100,
+                      autoAdjust: false, // Disable auto-adjust when user manually changes values
                     })
                   }
                 />
