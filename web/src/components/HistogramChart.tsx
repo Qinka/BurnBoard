@@ -181,6 +181,11 @@ const HistogramChart = forwardRef<HistogramChartHandle, HistogramChartProps>(fun
   } | null>(null);
   const CACHE_DURATION = 5000; // 5 seconds
 
+  // Incremental update state
+  const [lastMaxStep, setLastMaxStep] = useState<number>(-1);
+  const [incrementalCounter, setIncrementalCounter] = useState<number>(0);
+  const FULL_SYNC_INTERVAL = 10; // Do full sync every 10 incremental updates
+
   const fetchHistograms = useCallback(async (forceRefresh = false) => {
     // Check cache if not forcing refresh
     if (!forceRefresh && dataCache && (Date.now() - dataCache.timestamp) < CACHE_DURATION) {
@@ -198,9 +203,18 @@ const HistogramChart = forwardRef<HistogramChartHandle, HistogramChartProps>(fun
     }
 
     try {
-      // Fetch with data sampling for performance
+      // Determine if this should be an incremental or full fetch
+      const shouldFullSync = forceRefresh || incrementalCounter >= FULL_SYNC_INTERVAL || lastMaxStep === -1;
+      
       const startTime = performance.now();
-      const response = await fetch(`/api/histograms?max_points=${maxPoints}`);
+      let url = `/api/histograms?max_points=${maxPoints}`;
+      
+      // Add since_step for incremental updates
+      if (!shouldFullSync && lastMaxStep > -1) {
+        url += `&since_step=${lastMaxStep}`;
+      }
+      
+      const response = await fetch(url);
       if (!response.ok) {
         throw new Error('Failed to fetch histograms');
       }
@@ -211,28 +225,59 @@ const HistogramChart = forwardRef<HistogramChartHandle, HistogramChartProps>(fun
       const latency = endTime - startTime;
       onLatencyRecord?.(latency);
 
+      let combinedData: HistogramData[];
+      
+      if (shouldFullSync) {
+        // Full sync - replace all data
+        combinedData = result.data;
+        setIncrementalCounter(0);
+      } else {
+        // Incremental update - merge new data with existing
+        const existingData = dataCache?.data || [];
+        
+        // Create a map of existing data by unique key
+        const existingMap = new Map<string, HistogramData>();
+        for (const item of existingData) {
+          const key = `${item.tag}|${item.run}|${item.step}`;
+          existingMap.set(key, item);
+        }
+        
+        // Add new data
+        for (const item of result.data) {
+          const key = `${item.tag}|${item.run}|${item.step}`;
+          existingMap.set(key, item);
+        }
+        
+        combinedData = Array.from(existingMap.values());
+        setIncrementalCounter(prev => prev + 1);
+      }
+
       // Update cache
       setDataCache({
-        data: result.data,
+        data: combinedData,
         timestamp: Date.now(),
       });
 
+      // Track max step for next incremental update
+      const maxStep = Math.max(...combinedData.map(d => d.step), -1);
+      setLastMaxStep(maxStep);
+
       // Extract unique tags and sort alphabetically
-      const uniqueTags = [...new Set(result.data.map(item => item.tag))].sort();
+      const uniqueTags = [...new Set(combinedData.map(item => item.tag))].sort();
       setTags(uniqueTags);
 
       // Extract unique runs and sort alphabetically
-      const uniqueRuns = [...new Set(result.data.map(item => item.run))].sort();
+      const uniqueRuns = [...new Set(combinedData.map(item => item.run))].sort();
       setRuns(uniqueRuns);
 
-      setData(result.data);
+      setData(combinedData);
       setLoading(false);
       setError(null);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Unknown error');
       setLoading(false);
     }
-  }, [dataCache]);
+  }, [dataCache, incrementalCounter, lastMaxStep, maxPoints, onLatencyRecord]);
 
   useEffect(() => {
     fetchHistograms(false);

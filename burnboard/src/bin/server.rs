@@ -58,6 +58,8 @@ struct DataQuery {
     runs: Option<String>,
     /// Maximum number of data points per tag (for sampling)
     max_points: Option<usize>,
+    /// Fetch only data points with step > since_step (for incremental updates)
+    since_step: Option<i64>,
 }
 
 // Response types
@@ -202,6 +204,13 @@ async fn get_scalars(
             }
         }
         
+        // Apply step filter for incremental updates
+        if let Some(since_step) = query.since_step {
+            if event_with_run.event.step <= since_step {
+                continue;
+            }
+        }
+        
         if let Some(burnboard::proto::event::What::Summary(summary)) = &event_with_run.event.what {
             for value in &summary.value {
                 // Apply tag filter
@@ -273,6 +282,13 @@ async fn get_histograms(
         // Apply run filter
         if let Some(ref runs) = run_filter {
             if !runs.contains(&event_with_run.run) {
+                continue;
+            }
+        }
+        
+        // Apply step filter for incremental updates
+        if let Some(since_step) = query.since_step {
+            if event_with_run.event.step <= since_step {
                 continue;
             }
         }
