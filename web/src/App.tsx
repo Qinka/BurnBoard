@@ -4,6 +4,8 @@ import HistogramChart, { HistogramChartHandle } from './components/HistogramChar
 import { getRunColor } from './utils/colors'
 import './App.css'
 
+type Theme = 'light' | 'dark'
+
 function App() {
   const [activeTab, setActiveTab] = useState<'scalars' | 'histograms'>('scalars')
   const [autoRefresh, setAutoRefresh] = useState(true)
@@ -11,9 +13,25 @@ function App() {
   const [lastRefresh, setLastRefresh] = useState<Date | null>(null)
   const [runs, setRuns] = useState<string[]>([])
   const [visibleRuns, setVisibleRuns] = useState<Set<string>>(new Set())
+  const [theme, setTheme] = useState<Theme>(() => {
+    // Check localStorage or default to light
+    const savedTheme = localStorage.getItem('burnboard-theme') as Theme | null
+    return savedTheme || 'light'
+  })
 
   const scalarChartRef = useRef<ScalarChartHandle>(null)
   const histogramChartRef = useRef<HistogramChartHandle>(null)
+
+  // Apply theme to document
+  useEffect(() => {
+    document.documentElement.setAttribute('data-theme', theme)
+    localStorage.setItem('burnboard-theme', theme)
+  }, [theme])
+
+  // Toggle theme
+  const toggleTheme = () => {
+    setTheme(prev => prev === 'light' ? 'dark' : 'light')
+  }
 
   // When runs change, make all runs visible by default
   const handleRunsChange = useCallback((newRuns: string[]) => {
@@ -105,6 +123,13 @@ function App() {
 
         {/* Right: Refresh Controls */}
         <div className="header-right">
+          <button
+            className="theme-toggle"
+            onClick={toggleTheme}
+            title={`Switch to ${theme === 'light' ? 'dark' : 'light'} theme`}
+          >
+            {theme === 'light' ? '🌙' : '☀️'}
+          </button>
           <button
             className="refresh-button"
             onClick={handleRefresh}
