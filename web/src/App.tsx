@@ -1,7 +1,9 @@
 import { useState, useRef, useEffect, useCallback } from 'react'
 import ScalarChart, { ScalarChartHandle } from './components/ScalarChart'
 import HistogramChart, { HistogramChartHandle } from './components/HistogramChart'
+import SettingsModal from './components/SettingsModal'
 import { getRunColor } from './utils/colors'
+import { usePerformanceSettings } from './utils/performanceSettings'
 import './App.css'
 
 type Theme = 'light' | 'dark'
@@ -13,12 +15,14 @@ function App() {
   const [lastRefresh, setLastRefresh] = useState<Date | null>(null)
   const [runs, setRuns] = useState<string[]>([])
   const [visibleRuns, setVisibleRuns] = useState<Set<string>>(new Set())
+  const [showSettings, setShowSettings] = useState(false)
   const [theme, setTheme] = useState<Theme>(() => {
     // Check localStorage or default to light
     const savedTheme = localStorage.getItem('burnboard-theme') as Theme | null
     return savedTheme || 'light'
   })
 
+  const { settings, updateSettings, recordLatency } = usePerformanceSettings()
   const scalarChartRef = useRef<ScalarChartHandle>(null)
   const histogramChartRef = useRef<HistogramChartHandle>(null)
 
@@ -124,6 +128,13 @@ function App() {
         {/* Right: Refresh Controls */}
         <div className="header-right">
           <button
+            className="settings-button"
+            onClick={() => setShowSettings(true)}
+            title="Performance Settings / 性能设置"
+          >
+            ⚙️
+          </button>
+          <button
             className="theme-toggle"
             onClick={toggleTheme}
             title={`Switch to ${theme === 'light' ? 'dark' : 'light'} theme`}
@@ -201,10 +212,34 @@ function App() {
 
         {/* Main Content Area */}
         <main className={`app-main ${runs.length === 0 ? 'no-sidebar' : ''}`}>
-          {activeTab === 'scalars' && <ScalarChart ref={scalarChartRef} onRunsChange={handleRunsChange} visibleRuns={visibleRuns} />}
-          {activeTab === 'histograms' && <HistogramChart ref={histogramChartRef} onRunsChange={handleRunsChange} visibleRuns={visibleRuns} />}
+          {activeTab === 'scalars' && (
+            <ScalarChart
+              ref={scalarChartRef}
+              onRunsChange={handleRunsChange}
+              visibleRuns={visibleRuns}
+              maxPoints={settings.scalarMaxPoints}
+              onLatencyRecord={recordLatency}
+            />
+          )}
+          {activeTab === 'histograms' && (
+            <HistogramChart
+              ref={histogramChartRef}
+              onRunsChange={handleRunsChange}
+              visibleRuns={visibleRuns}
+              maxPoints={settings.histogramMaxPoints}
+              onLatencyRecord={recordLatency}
+            />
+          )}
         </main>
       </div>
+
+      {/* Settings Modal */}
+      <SettingsModal
+        isOpen={showSettings}
+        onClose={() => setShowSettings(false)}
+        settings={settings}
+        onSettingsChange={updateSettings}
+      />
 
       {/* Footer */}
       <footer className="app-footer">

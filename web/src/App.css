@@ -207,7 +207,8 @@
   transform: translateY(0);
 }
 
-/* Theme Toggle Button */
+/* Theme Toggle and Settings Buttons */
+.settings-button,
 .theme-toggle {
   display: flex;
   align-items: center;
@@ -224,6 +225,7 @@
   transition: all 0.2s ease;
 }
 
+.settings-button:hover,
 .theme-toggle:hover {
   background-color: var(--bg-surface-hover);
   border-color: var(--primary-orange);
