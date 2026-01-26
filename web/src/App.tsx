@@ -156,18 +156,6 @@ function App() {
             />
             Auto
           </label>
-          <select
-            className="interval-select"
-            value={refreshInterval}
-            onChange={(e) => setRefreshInterval(Number(e.target.value))}
-            disabled={!autoRefresh}
-          >
-            <option value={1}>1s</option>
-            <option value={5}>5s</option>
-            <option value={10}>10s</option>
-            <option value={30}>30s</option>
-            <option value={60}>60s</option>
-          </select>
           {lastRefresh && (
             <span className="last-refresh">
               {lastRefresh.toLocaleTimeString()}
