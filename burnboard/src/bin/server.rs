@@ -1,5 +1,5 @@
 use axum::{
-    extract::State,
+    extract::{Query, State},
     http::StatusCode,
     response::{IntoResponse, Response},
     routing::get,
@@ -49,8 +49,19 @@ struct AppState {
     log_dir: PathBuf,
 }
 
+// Query parameters for filtering
+#[derive(Deserialize)]
+struct DataQuery {
+    /// Filter by specific tags (comma-separated)
+    tags: Option<String>,
+    /// Filter by specific runs (comma-separated)
+    runs: Option<String>,
+    /// Maximum number of data points per tag (for sampling)
+    max_points: Option<usize>,
+}
+
 // Response types
-#[derive(Serialize, Deserialize)]
+#[derive(Serialize, Deserialize, Clone)]
 struct ScalarData {
     tag: String,
     step: i64,
@@ -59,7 +70,7 @@ struct ScalarData {
     run: String,  // The run (subdirectory) this data belongs to
 }
 
-#[derive(Serialize, Deserialize)]
+#[derive(Serialize, Deserialize, Clone)]
 struct HistogramData {
     tag: String,
     step: i64,
@@ -100,19 +111,110 @@ where
     }
 }
 
+/// Sample data points using Largest-Triangle-Three-Buckets algorithm for visual preservation
+/// This reduces the number of points while maintaining the visual characteristics of the data
+fn sample_data<T, F>(data: Vec<T>, max_points: usize, get_x: F) -> Vec<T>
+where
+    F: Fn(&T) -> i64,
+    T: Clone,
+{
+    if data.len() <= max_points || max_points < 3 {
+        return data;
+    }
+
+    let mut sampled = Vec::with_capacity(max_points);
+    
+    // Always include first point
+    sampled.push(data[0].clone());
+    
+    let bucket_size = (data.len() - 2) as f64 / (max_points - 2) as f64;
+    let mut a_index = 0;
+    
+    for i in 0..(max_points - 2) {
+        // Calculate point average for next bucket (for next iteration)
+        let avg_range_start = ((i + 1) as f64 * bucket_size).floor() as usize + 1;
+        let avg_range_end = ((i + 2) as f64 * bucket_size).floor() as usize + 1;
+        let avg_range_end = avg_range_end.min(data.len());
+        
+        let avg_x = if avg_range_end > avg_range_start {
+            let sum: i64 = (avg_range_start..avg_range_end)
+                .map(|idx| get_x(&data[idx]))
+                .sum();
+            sum / (avg_range_end - avg_range_start) as i64
+        } else {
+            get_x(&data[data.len() - 1])
+        };
+        
+        // Get current bucket range
+        let range_start = (i as f64 * bucket_size).floor() as usize + 1;
+        let range_end = ((i + 1) as f64 * bucket_size).floor() as usize + 1;
+        
+        // Find point in bucket with largest triangle area
+        let point_a_x = get_x(&data[a_index]) as f64;
+        
+        let mut max_area = -1.0;
+        let mut max_area_point = range_start;
+        
+        for idx in range_start..range_end.min(data.len()) {
+            let point_x = get_x(&data[idx]) as f64;
+            // Calculate triangle area
+            let area = ((point_a_x - avg_x as f64) * (point_x - point_a_x)).abs();
+            
+            if area > max_area {
+                max_area = area;
+                max_area_point = idx;
+            }
+        }
+        
+        sampled.push(data[max_area_point].clone());
+        a_index = max_area_point;
+    }
+    
+    // Always include last point
+    sampled.push(data[data.len() - 1].clone());
+    
+    sampled
+}
+
 // Handler: Get scalar data
 async fn get_scalars(
     State(state): State<AppState>,
+    Query(query): Query<DataQuery>,
 ) -> Result<Json<ApiResponse<Vec<ScalarData>>>, AppError> {
     let events = state.events.read().await;
-    let mut scalars = Vec::new();
+    
+    // Parse filter parameters
+    let tag_filter: Option<Vec<String>> = query.tags.as_ref().map(|tags| 
+        tags.split(',').map(|s| s.trim().to_string()).collect()
+    );
+    let run_filter: Option<Vec<String>> = query.runs.as_ref().map(|runs| 
+        runs.split(',').map(|s| s.trim().to_string()).collect()
+    );
+    
+    // Group scalars by tag and run for sampling
+    let mut grouped_scalars: std::collections::HashMap<(String, String), Vec<ScalarData>> = std::collections::HashMap::new();
 
     for event_with_run in events.iter() {
+        // Apply run filter
+        if let Some(ref runs) = run_filter {
+            if !runs.contains(&event_with_run.run) {
+                continue;
+            }
+        }
+        
         if let Some(burnboard::proto::event::What::Summary(summary)) = &event_with_run.event.what {
             for value in &summary.value {
+                // Apply tag filter
+                if let Some(ref tags) = tag_filter {
+                    if !tags.contains(&value.tag) {
+                        continue;
+                    }
+                }
+                
                 if let Some(burnboard::proto::summary::value::Value::SimpleValue(v)) = &value.value
                 {
-                    scalars.push(ScalarData {
+                    let key = (value.tag.clone(), event_with_run.run.clone());
+                    grouped_scalars.entry(key).or_insert_with(Vec::new).push(ScalarData {
                         tag: value.tag.clone(),
                         step: event_with_run.event.step,
                         wall_time: event_with_run.event.wall_time,
@@ -122,6 +224,24 @@ async fn get_scalars(
                 }
             }
         }
+    }
+    
+    // Apply sampling and collect results
+    let mut scalars = Vec::new();
+    let max_points = query.max_points.unwrap_or(usize::MAX);
+    
+    for (_, mut data) in grouped_scalars {
+        // Sort by step for consistent sampling
+        data.sort_by_key(|d| d.step);
+        
+        // Apply sampling if needed
+        let sampled_data = if data.len() > max_points {
+            sample_data(data, max_points, |d| d.step)
+        } else {
+            data
+        };
+        
+        scalars.extend(sampled_data);
     }
 
     let count = scalars.len();
@@ -134,15 +254,41 @@ async fn get_scalars(
 // Handler: Get histogram data
 async fn get_histograms(
     State(state): State<AppState>,
+    Query(query): Query<DataQuery>,
 ) -> Result<Json<ApiResponse<Vec<HistogramData>>>, AppError> {
     let events = state.events.read().await;
-    let mut histograms = Vec::new();
+    
+    // Parse filter parameters
+    let tag_filter: Option<Vec<String>> = query.tags.as_ref().map(|tags| 
+        tags.split(',').map(|s| s.trim().to_string()).collect()
+    );
+    let run_filter: Option<Vec<String>> = query.runs.as_ref().map(|runs| 
+        runs.split(',').map(|s| s.trim().to_string()).collect()
+    );
+    
+    // Group histograms by tag and run for sampling
+    let mut grouped_histograms: std::collections::HashMap<(String, String), Vec<HistogramData>> = std::collections::HashMap::new();
 
     for event_with_run in events.iter() {
+        // Apply run filter
+        if let Some(ref runs) = run_filter {
+            if !runs.contains(&event_with_run.run) {
+                continue;
+            }
+        }
+        
         if let Some(burnboard::proto::event::What::Summary(summary)) = &event_with_run.event.what {
             for value in &summary.value {
+                // Apply tag filter
+                if let Some(ref tags) = tag_filter {
+                    if !tags.contains(&value.tag) {
+                        continue;
+                    }
+                }
+                
                 if let Some(burnboard::proto::summary::value::Value::Histo(h)) = &value.value {
-                    histograms.push(HistogramData {
+                    let key = (value.tag.clone(), event_with_run.run.clone());
+                    grouped_histograms.entry(key).or_insert_with(Vec::new).push(HistogramData {
                         tag: value.tag.clone(),
                         step: event_with_run.event.step,
                         wall_time: event_with_run.event.wall_time,
@@ -156,6 +302,24 @@ async fn get_histograms(
                 }
             }
         }
+    }
+    
+    // Apply sampling and collect results
+    let mut histograms = Vec::new();
+    let max_points = query.max_points.unwrap_or(usize::MAX);
+    
+    for (_, mut data) in grouped_histograms {
+        // Sort by step for consistent sampling
+        data.sort_by_key(|d| d.step);
+        
+        // Apply sampling if needed
+        let sampled_data = if data.len() > max_points {
+            sample_data(data, max_points, |d| d.step)
+        } else {
+            data
+        };
+        
+        histograms.extend(sampled_data);
     }
 
     let count = histograms.len();
