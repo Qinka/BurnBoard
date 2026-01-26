@@ -191,8 +191,8 @@ const HistogramChart = forwardRef<HistogramChartHandle, HistogramChartProps>(fun
     }
 
     try {
-      // Fetch with data sampling for performance (max 500 points per tag/run for histograms)
-      const response = await fetch('/api/histograms?max_points=500');
+      // Fetch with data sampling for performance (max 100 points per tag/run for histograms)
+      const response = await fetch('/api/histograms?max_points=100');
       if (!response.ok) {
         throw new Error('Failed to fetch histograms');
       }
