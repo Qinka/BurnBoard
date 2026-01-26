@@ -104,13 +104,29 @@ const generateSVG = (
   const chartWidth = width - margin.left - margin.right;
   const chartHeight = height - margin.top - margin.bottom;
 
-  // Collect all x and y values across all runs for proper scaling
-  const allXValues: number[] = [];
-  const allYValues: number[] = [];
+  // Merge all runs' data into a unified X-axis like the web chart does
+  // This mimics Recharts' categorical X-axis behavior
+  const allXValuesSet = new Set<number>();
+  allRunsData.forEach((chartData) => {
+    chartData.forEach(d => allXValuesSet.add(d.x));
+  });
+  const sortedXValues = Array.from(allXValuesSet).sort((a, b) => a - b);
   
+  if (sortedXValues.length === 0) {
+    return `<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" width="${width}" height="${height}">
+  <text x="${width/2}" y="${height/2}" text-anchor="middle">No data available</text>
+</svg>`;
+  }
+
+  // Create a map from X value to index for categorical-style positioning
+  const xToIndex = new Map<number, number>();
+  sortedXValues.forEach((x, i) => xToIndex.set(x, i));
+  
+  // Collect all y values for Y-axis scaling
+  const allYValues: number[] = [];
   allRunsData.forEach((chartData) => {
     chartData.forEach(d => {
-      allXValues.push(d.x);
       allYValues.push(transformValue(d.value, yAxisTransform));
       if (showSmoothed && smoothing > 0) {
         allYValues.push(transformValue(d.smoothedValue, yAxisTransform));
@@ -119,24 +135,26 @@ const generateSVG = (
   });
 
   const validYValues = allYValues.filter(v => !isNaN(v) && isFinite(v));
-  if (allXValues.length === 0 || validYValues.length === 0) {
+  if (validYValues.length === 0) {
     return `<?xml version="1.0" encoding="UTF-8"?>
 <svg xmlns="http://www.w3.org/2000/svg" width="${width}" height="${height}">
-  <text x="${width/2}" y="${height/2}" text-anchor="middle">No data available</text>
+  <text x="${width/2}" y="${height/2}" text-anchor="middle">No valid data</text>
 </svg>`;
   }
 
-  const xMin = Math.min(...allXValues);
-  const xMax = Math.max(...allXValues);
   const yMin = Math.min(...validYValues);
   const yMax = Math.max(...validYValues);
-
   const yRange = yMax - yMin;
   const yPadding = yRange * 0.1 || 0.1;
   const yAxisMin = yMin - yPadding;
   const yAxisMax = yMax + yPadding;
 
-  const scaleX = (v: number) => margin.left + ((v - xMin) / (xMax - xMin || 1)) * chartWidth;
+  // Scale functions - X uses categorical index, Y uses linear scale
+  const numPoints = sortedXValues.length;
+  const scaleXByIndex = (index: number) => {
+    if (numPoints <= 1) return margin.left + chartWidth / 2;
+    return margin.left + (index / (numPoints - 1)) * chartWidth;
+  };
   const scaleY = (v: number) => margin.top + chartHeight - ((v - yAxisMin) / (yAxisMax - yAxisMin || 1)) * chartHeight;
 
   // Generate paths for each run
@@ -147,13 +165,18 @@ const generateSVG = (
   allRunsData.forEach((chartData, runName) => {
     const color = runColors.get(runName) || '#1f77b4';
     
-    // Build original line path - track if previous point was valid for proper M/L commands
+    // Sort chart data by x value to ensure correct path order
+    const sortedData = [...chartData].sort((a, b) => a.x - b.x);
+    
+    // Build original line path
     const originalPathParts: string[] = [];
     let prevWasValid = false;
     
-    for (let i = 0; i < chartData.length; i++) {
-      const d = chartData[i];
-      const x = scaleX(d.x);
+    for (const d of sortedData) {
+      const xIndex = xToIndex.get(d.x);
+      if (xIndex === undefined) continue;
+      
+      const x = scaleXByIndex(xIndex);
       const yVal = transformValue(d.value, yAxisTransform);
       
       if (isNaN(yVal) || !isFinite(yVal)) {
@@ -162,9 +185,8 @@ const generateSVG = (
       }
       
       const y = scaleY(yVal);
-      // Use 'M' if this is the first valid point or if previous point was invalid
       const command = prevWasValid ? 'L' : 'M';
-      originalPathParts.push(`${command} ${x} ${y}`);
+      originalPathParts.push(`${command} ${x.toFixed(2)} ${y.toFixed(2)}`);
       prevWasValid = true;
     }
     
@@ -180,9 +202,11 @@ const generateSVG = (
       const smoothedPathParts: string[] = [];
       prevWasValid = false;
       
-      for (let i = 0; i < chartData.length; i++) {
-        const d = chartData[i];
-        const x = scaleX(d.x);
+      for (const d of sortedData) {
+        const xIndex = xToIndex.get(d.x);
+        if (xIndex === undefined) continue;
+        
+        const x = scaleXByIndex(xIndex);
         const yVal = transformValue(d.smoothedValue, yAxisTransform);
         
         if (isNaN(yVal) || !isFinite(yVal)) {
@@ -192,7 +216,7 @@ const generateSVG = (
         
         const y = scaleY(yVal);
         const command = prevWasValid ? 'L' : 'M';
-        smoothedPathParts.push(`${command} ${x} ${y}`);
+        smoothedPathParts.push(`${command} ${x.toFixed(2)} ${y.toFixed(2)}`);
         prevWasValid = true;
       }
       
@@ -216,13 +240,20 @@ const generateSVG = (
   if (yAxisTransform === 'log') yAxisLabel = 'Value (log₁₀)';
   if (yAxisTransform === 'exp') yAxisLabel = 'Value (exp)';
 
-  const generateTicks = (min: number, max: number, count: number = 5): number[] => {
+  // Generate X-axis ticks (show ~6 evenly spaced labels)
+  const numXTicks = Math.min(6, numPoints);
+  const xTickIndices: number[] = [];
+  for (let i = 0; i < numXTicks; i++) {
+    const idx = Math.round((i / (numXTicks - 1 || 1)) * (numPoints - 1));
+    xTickIndices.push(idx);
+  }
+
+  // Generate Y-axis ticks
+  const generateYTicks = (min: number, max: number, count: number = 6): number[] => {
     const step = (max - min) / (count - 1);
     return Array.from({ length: count }, (_, i) => min + i * step);
   };
-
-  const xTicks = generateTicks(xMin, xMax, 6);
-  const yTicks = generateTicks(yAxisMin, yAxisMax, 6);
+  const yTicks = generateYTicks(yAxisMin, yAxisMax, 6);
 
   const formatNumber = (n: number): string => {
     if (Math.abs(n) >= 1000000) return (n / 1000000).toFixed(1) + 'M';
@@ -251,12 +282,12 @@ const generateSVG = (
   <text x="${width / 2}" y="45" text-anchor="middle" class="subtitle">Smoothing: ${(smoothing * 100).toFixed(0)}% | X-Axis: ${xAxisLabel} | Y-Axis: ${yAxisLabel}</text>
 
   ${yTicks.map(tick => `<line x1="${margin.left}" y1="${scaleY(tick)}" x2="${width - margin.right}" y2="${scaleY(tick)}" class="grid"/>`).join('\n  ')}
-  ${xTicks.map(tick => `<line x1="${scaleX(tick)}" y1="${margin.top}" x2="${scaleX(tick)}" y2="${height - margin.bottom}" class="grid"/>`).join('\n  ')}
+  ${xTickIndices.map(idx => `<line x1="${scaleXByIndex(idx)}" y1="${margin.top}" x2="${scaleXByIndex(idx)}" y2="${height - margin.bottom}" class="grid"/>`).join('\n  ')}
 
   <line x1="${margin.left}" y1="${height - margin.bottom}" x2="${width - margin.right}" y2="${height - margin.bottom}" class="axis"/>
   <line x1="${margin.left}" y1="${margin.top}" x2="${margin.left}" y2="${height - margin.bottom}" class="axis"/>
 
-  ${xTicks.map(tick => `<text x="${scaleX(tick)}" y="${height - margin.bottom + 20}" text-anchor="middle" class="tick-label">${formatNumber(tick)}</text>`).join('\n  ')}
+  ${xTickIndices.map(idx => `<text x="${scaleXByIndex(idx)}" y="${height - margin.bottom + 20}" text-anchor="middle" class="tick-label">${formatNumber(sortedXValues[idx])}</text>`).join('\n  ')}
   <text x="${width / 2}" y="${height - 20}" text-anchor="middle" class="axis-label">${xAxisLabel}</text>
 
   ${yTicks.map(tick => `<text x="${margin.left - 10}" y="${scaleY(tick) + 4}" text-anchor="end" class="tick-label">${formatNumber(tick)}</text>`).join('\n  ')}
