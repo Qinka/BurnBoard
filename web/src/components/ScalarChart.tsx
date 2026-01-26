@@ -34,6 +34,8 @@ interface MultiRunChartData {
 interface ScalarChartProps {
   onRunsChange?: (runs: string[]) => void;
   visibleRuns?: Set<string>;
+  maxPoints?: number;
+  onLatencyRecord?: (latency: number) => void;
 }
 
 export interface ScalarChartHandle {
@@ -300,7 +302,12 @@ const generateSVG = (
 </svg>`;
 };
 
-const ScalarChart = forwardRef<ScalarChartHandle, ScalarChartProps>(function ScalarChart({ onRunsChange, visibleRuns }, ref) {
+const ScalarChart = forwardRef<ScalarChartHandle, ScalarChartProps>(function ScalarChart({ 
+  onRunsChange, 
+  visibleRuns,
+  maxPoints = 200,
+  onLatencyRecord 
+}, ref) {
   const [data, setData] = useState<ScalarData[]>([]);
   const [tags, setTags] = useState<string[]>([]);
   const [runs, setRuns] = useState<string[]>([]);
@@ -361,12 +368,18 @@ const ScalarChart = forwardRef<ScalarChartHandle, ScalarChartProps>(function Sca
     }
 
     try {
-      // Fetch with data sampling for performance (max 200 points per tag/run)
-      const response = await fetch('/api/scalars?max_points=200');
+      // Fetch with data sampling for performance
+      const startTime = performance.now();
+      const response = await fetch(`/api/scalars?max_points=${maxPoints}`);
       if (!response.ok) {
         throw new Error('Failed to fetch scalars');
       }
       const result: ScalarApiResponse = await response.json();
+      
+      // Record latency for adaptive adjustment
+      const endTime = performance.now();
+      const latency = endTime - startTime;
+      onLatencyRecord?.(latency);
 
       // Update cache
       setDataCache({

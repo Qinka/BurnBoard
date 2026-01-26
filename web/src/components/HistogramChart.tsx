@@ -36,6 +36,8 @@ interface MultiRunHistogramChartData {
 interface HistogramChartProps {
   onRunsChange?: (runs: string[]) => void;
   visibleRuns?: Set<string>;
+  maxPoints?: number;
+  onLatencyRecord?: (latency: number) => void;
 }
 
 export interface HistogramChartHandle {
@@ -155,7 +157,12 @@ function generateHistogramSVG(
 </svg>`;
 }
 
-const HistogramChart = forwardRef<HistogramChartHandle, HistogramChartProps>(function HistogramChart({ onRunsChange, visibleRuns }, ref) {
+const HistogramChart = forwardRef<HistogramChartHandle, HistogramChartProps>(function HistogramChart({ 
+  onRunsChange, 
+  visibleRuns,
+  maxPoints = 100,
+  onLatencyRecord 
+}, ref) {
   const [data, setData] = useState<HistogramData[]>([]);
   const [tags, setTags] = useState<string[]>([]);
   const [runs, setRuns] = useState<string[]>([]);
@@ -191,12 +198,18 @@ const HistogramChart = forwardRef<HistogramChartHandle, HistogramChartProps>(fun
     }
 
     try {
-      // Fetch with data sampling for performance (max 100 points per tag/run for histograms)
-      const response = await fetch('/api/histograms?max_points=100');
+      // Fetch with data sampling for performance
+      const startTime = performance.now();
+      const response = await fetch(`/api/histograms?max_points=${maxPoints}`);
       if (!response.ok) {
         throw new Error('Failed to fetch histograms');
       }
       const result: HistogramApiResponse = await response.json();
+
+      // Record latency for adaptive adjustment
+      const endTime = performance.now();
+      const latency = endTime - startTime;
+      onLatencyRecord?.(latency);
 
       // Update cache
       setDataCache({
