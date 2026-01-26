@@ -331,6 +331,11 @@ const ScalarChart = forwardRef<ScalarChartHandle, ScalarChartProps>(function Sca
   } | null>(null);
   const CACHE_DURATION = 5000; // 5 seconds
 
+  // Incremental update state
+  const [lastMaxStep, setLastMaxStep] = useState<number>(-1);
+  const [incrementalCounter, setIncrementalCounter] = useState<number>(0);
+  const FULL_SYNC_INTERVAL = 10; // Do full sync every 10 incremental updates
+
   const fetchScalars = useCallback(async (forceRefresh = false) => {
     // Check cache if not forcing refresh
     if (!forceRefresh && dataCache && (Date.now() - dataCache.timestamp) < CACHE_DURATION) {
@@ -368,9 +373,18 @@ const ScalarChart = forwardRef<ScalarChartHandle, ScalarChartProps>(function Sca
     }
 
     try {
-      // Fetch with data sampling for performance
+      // Determine if this should be an incremental or full fetch
+      const shouldFullSync = forceRefresh || incrementalCounter >= FULL_SYNC_INTERVAL || lastMaxStep === -1;
+      
       const startTime = performance.now();
-      const response = await fetch(`/api/scalars?max_points=${maxPoints}`);
+      let url = `/api/scalars?max_points=${maxPoints}`;
+      
+      // Add since_step for incremental updates
+      if (!shouldFullSync && lastMaxStep > -1) {
+        url += `&since_step=${lastMaxStep}`;
+      }
+      
+      const response = await fetch(url);
       if (!response.ok) {
         throw new Error('Failed to fetch scalars');
       }
@@ -381,22 +395,53 @@ const ScalarChart = forwardRef<ScalarChartHandle, ScalarChartProps>(function Sca
       const latency = endTime - startTime;
       onLatencyRecord?.(latency);
 
+      let combinedData: ScalarData[];
+      
+      if (shouldFullSync) {
+        // Full sync - replace all data
+        combinedData = result.data;
+        setIncrementalCounter(0);
+      } else {
+        // Incremental update - merge new data with existing
+        const existingData = dataCache?.data || [];
+        
+        // Create a map of existing data by unique key
+        const existingMap = new Map<string, ScalarData>();
+        for (const item of existingData) {
+          const key = `${item.tag}|${item.run}|${item.step}`;
+          existingMap.set(key, item);
+        }
+        
+        // Add new data
+        for (const item of result.data) {
+          const key = `${item.tag}|${item.run}|${item.step}`;
+          existingMap.set(key, item);
+        }
+        
+        combinedData = Array.from(existingMap.values());
+        setIncrementalCounter(prev => prev + 1);
+      }
+
       // Update cache
       setDataCache({
-        data: result.data,
+        data: combinedData,
         timestamp: Date.now(),
       });
 
-      const uniqueTags = [...new Set(result.data.map(item => item.tag))].sort();
+      // Track max step for next incremental update
+      const maxStep = Math.max(...combinedData.map(d => d.step), -1);
+      setLastMaxStep(maxStep);
+
+      const uniqueTags = [...new Set(combinedData.map(item => item.tag))].sort();
       setTags(uniqueTags);
 
-      const uniqueRuns = [...new Set(result.data.map(item => item.run))].sort();
+      const uniqueRuns = [...new Set(combinedData.map(item => item.run))].sort();
       setRuns(uniqueRuns);
 
       const processedData: ScalarData[] = [];
       const tagFirstTime: Map<string, number> = new Map();
       // First pass: find first time for each tag (use wallTime if available, otherwise step)
-      for (const item of result.data) {
+      for (const item of combinedData) {
         const itemTime = item.wallTime ?? item.step;
         const existing = tagFirstTime.get(item.tag);
         if (existing === undefined || itemTime < existing) {
@@ -404,7 +449,7 @@ const ScalarChart = forwardRef<ScalarChartHandle, ScalarChartProps>(function Sca
         }
       }
 
-      for (const item of result.data) {
+      for (const item of combinedData) {
         const firstTime = tagFirstTime.get(item.tag) ?? 0;
         const itemTime = item.wallTime ?? item.step;
         processedData.push({
@@ -421,7 +466,7 @@ const ScalarChart = forwardRef<ScalarChartHandle, ScalarChartProps>(function Sca
       setError(err instanceof Error ? err.message : 'Unknown error');
       setLoading(false);
     }
-  }, [dataCache]);
+  }, [dataCache, incrementalCounter, lastMaxStep, maxPoints, onLatencyRecord]);
 
   useEffect(() => {
     fetchScalars(false);
