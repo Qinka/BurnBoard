@@ -361,8 +361,8 @@ const ScalarChart = forwardRef<ScalarChartHandle, ScalarChartProps>(function Sca
     }
 
     try {
-      // Fetch with data sampling for performance (max 1000 points per tag/run)
-      const response = await fetch('/api/scalars?max_points=1000');
+      // Fetch with data sampling for performance (max 200 points per tag/run)
+      const response = await fetch('/api/scalars?max_points=200');
       if (!response.ok) {
         throw new Error('Failed to fetch scalars');
       }
