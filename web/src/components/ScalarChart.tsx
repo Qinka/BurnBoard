@@ -317,13 +317,62 @@ const ScalarChart = forwardRef<ScalarChartHandle, ScalarChartProps>(function Sca
 
   const tagGroups = useMemo(() => groupTagsByPrefix(tags), [tags]);
 
-  const fetchScalars = useCallback(async () => {
+  // Cache for data to avoid unnecessary refetches
+  const [dataCache, setDataCache] = useState<{
+    data: ScalarData[];
+    timestamp: number;
+  } | null>(null);
+  const CACHE_DURATION = 5000; // 5 seconds
+
+  const fetchScalars = useCallback(async (forceRefresh = false) => {
+    // Check cache if not forcing refresh
+    if (!forceRefresh && dataCache && (Date.now() - dataCache.timestamp) < CACHE_DURATION) {
+      // Use cached data
+      const uniqueTags = [...new Set(dataCache.data.map(item => item.tag))].sort();
+      setTags(uniqueTags);
+
+      const uniqueRuns = [...new Set(dataCache.data.map(item => item.run))].sort();
+      setRuns(uniqueRuns);
+
+      const processedData: ScalarData[] = [];
+      const tagFirstTime: Map<string, number> = new Map();
+      for (const item of dataCache.data) {
+        const itemTime = item.wallTime ?? item.step;
+        const existing = tagFirstTime.get(item.tag);
+        if (existing === undefined || itemTime < existing) {
+          tagFirstTime.set(item.tag, itemTime);
+        }
+      }
+
+      for (const item of dataCache.data) {
+        const firstTime = tagFirstTime.get(item.tag) ?? 0;
+        const itemTime = item.wallTime ?? item.step;
+        processedData.push({
+          ...item,
+          wallTime: itemTime,
+          relativeTime: itemTime - firstTime,
+        });
+      }
+
+      setData(processedData);
+      setLoading(false);
+      setError(null);
+      return;
+    }
+
     try {
-      const response = await fetch('/api/scalars');
+      // Fetch with data sampling for performance (max 1000 points per tag/run)
+      const response = await fetch('/api/scalars?max_points=1000');
       if (!response.ok) {
         throw new Error('Failed to fetch scalars');
       }
       const result: ScalarApiResponse = await response.json();
+
+      // Update cache
+      setDataCache({
+        data: result.data,
+        timestamp: Date.now(),
+      });
 
       const uniqueTags = [...new Set(result.data.map(item => item.tag))].sort();
       setTags(uniqueTags);
@@ -359,10 +408,10 @@ const ScalarChart = forwardRef<ScalarChartHandle, ScalarChartProps>(function Sca
       setError(err instanceof Error ? err.message : 'Unknown error');
       setLoading(false);
     }
-  }, []);
+  }, [dataCache]);
 
   useEffect(() => {
-    fetchScalars();
+    fetchScalars(false);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
@@ -375,7 +424,7 @@ const ScalarChart = forwardRef<ScalarChartHandle, ScalarChartProps>(function Sca
 
   // Expose refresh method to parent
   useImperativeHandle(ref, () => ({
-    refresh: fetchScalars
+    refresh: () => fetchScalars(true)
   }), [fetchScalars]);
 
   const toggleCollapse = (tag: string) => {

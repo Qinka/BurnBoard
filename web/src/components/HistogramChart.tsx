@@ -167,13 +167,42 @@ const HistogramChart = forwardRef<HistogramChartHandle, HistogramChartProps>(fun
   // Group tags by "/" prefix
   const tagGroups = useMemo(() => groupTagsByPrefix(tags), [tags]);
 
-  const fetchHistograms = useCallback(async () => {
+  // Cache for data to avoid unnecessary refetches
+  const [dataCache, setDataCache] = useState<{
+    data: HistogramData[];
+    timestamp: number;
+  } | null>(null);
+  const CACHE_DURATION = 5000; // 5 seconds
+
+  const fetchHistograms = useCallback(async (forceRefresh = false) => {
+    // Check cache if not forcing refresh
+    if (!forceRefresh && dataCache && (Date.now() - dataCache.timestamp) < CACHE_DURATION) {
+      // Use cached data
+      const uniqueTags = [...new Set(dataCache.data.map(item => item.tag))].sort();
+      setTags(uniqueTags);
+
+      const uniqueRuns = [...new Set(dataCache.data.map(item => item.run))].sort();
+      setRuns(uniqueRuns);
+
+      setData(dataCache.data);
+      setLoading(false);
+      setError(null);
+      return;
+    }
+
     try {
-      const response = await fetch('/api/histograms');
+      // Fetch with data sampling for performance (max 500 points per tag/run for histograms)
+      const response = await fetch('/api/histograms?max_points=500');
       if (!response.ok) {
         throw new Error('Failed to fetch histograms');
       }
       const result: HistogramApiResponse = await response.json();
+
+      // Update cache
+      setDataCache({
+        data: result.data,
+        timestamp: Date.now(),
+      });
 
       // Extract unique tags and sort alphabetically
       const uniqueTags = [...new Set(result.data.map(item => item.tag))].sort();
@@ -190,10 +219,10 @@ const HistogramChart = forwardRef<HistogramChartHandle, HistogramChartProps>(fun
       setError(err instanceof Error ? err.message : 'Unknown error');
       setLoading(false);
     }
-  }, []);
+  }, [dataCache]);
 
   useEffect(() => {
-    fetchHistograms();
+    fetchHistograms(false);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
@@ -206,7 +235,7 @@ const HistogramChart = forwardRef<HistogramChartHandle, HistogramChartProps>(fun
 
   // Expose refresh method to parent
   useImperativeHandle(ref, () => ({
-    refresh: fetchHistograms
+    refresh: () => fetchHistograms(true)
   }), [fetchHistograms]);
 
   const toggleCollapse = (tag: string) => {
