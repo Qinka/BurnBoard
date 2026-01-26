@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
-import { PerformanceSettings } from '../components/SettingsModal';
+import { PerformanceSettings, SamplingMode } from '../components/SettingsModal';
 
 interface NetworkMetrics {
   latency: number;
@@ -18,7 +18,16 @@ export function usePerformanceSettings() {
     const saved = localStorage.getItem('burnboard-performance-settings');
     if (saved) {
       try {
-        return JSON.parse(saved);
+        const parsed = JSON.parse(saved);
+        // Ensure mode field exists (migration from old version)
+        if (!parsed.mode) {
+          parsed.mode = parsed.autoAdjust ? 'auto' : 'medium';
+        }
+        // Ensure refreshInterval exists
+        if (!parsed.refreshInterval) {
+          parsed.refreshInterval = 5;
+        }
+        return parsed;
       } catch {
         // Fall back to defaults if parsing fails
       }
@@ -27,6 +36,8 @@ export function usePerformanceSettings() {
       scalarMaxPoints: 200,
       histogramMaxPoints: 100,
       autoAdjust: true,
+      mode: 'auto' as SamplingMode,
+      refreshInterval: 5,
     };
   });
 
@@ -51,7 +62,7 @@ export function usePerformanceSettings() {
    * Record network latency for adaptive adjustment
    */
   const recordLatency = (latency: number) => {
-    if (!settings.autoAdjust) return;
+    if (!settings.autoAdjust || settings.mode !== 'auto') return;
 
     metricsHistory.current.push({
       latency,
