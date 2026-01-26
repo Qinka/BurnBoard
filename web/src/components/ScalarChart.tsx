@@ -90,12 +90,13 @@ const transformValue = (value: number, transform: YAxisTransform): number => {
 };
 
 const generateSVG = (
-  chartData: SingleRunPoint[],
+  allRunsData: Map<string, SingleRunPoint[]>,
   tag: string,
   xAxisType: XAxisType,
   yAxisTransform: YAxisTransform,
   smoothing: number,
-  showSmoothed: boolean
+  showSmoothed: boolean,
+  runColors: Map<string, string>
 ): string => {
   const width = 800;
   const height = 500;
@@ -103,47 +104,90 @@ const generateSVG = (
   const chartWidth = width - margin.left - margin.right;
   const chartHeight = height - margin.top - margin.bottom;
 
-  const getXValue = (d: SingleRunPoint): number => d.x;
+  // Collect all x and y values across all runs for proper scaling
+  const allXValues: number[] = [];
+  const allYValues: number[] = [];
+  
+  allRunsData.forEach((chartData) => {
+    chartData.forEach(d => {
+      allXValues.push(d.x);
+      allYValues.push(transformValue(d.value, yAxisTransform));
+      if (showSmoothed && smoothing > 0) {
+        allYValues.push(transformValue(d.smoothedValue, yAxisTransform));
+      }
+    });
+  });
 
-  const xValues = chartData.map(getXValue);
-  // Include both original and smoothed values for y-range calculation
-  const yValues = chartData.flatMap(d => {
-    const values = [transformValue(d.value, yAxisTransform)];
-    if (showSmoothed && smoothing > 0) {
-      values.push(transformValue(d.smoothedValue, yAxisTransform));
-    }
-    return values;
-  }).filter(v => !isNaN(v));
-  const xMin = Math.min(...xValues);
-  const xMax = Math.max(...xValues);
-  const yMin = Math.min(...yValues);
-  const yMax = Math.max(...yValues);
+  const validYValues = allYValues.filter(v => !isNaN(v) && isFinite(v));
+  if (allXValues.length === 0 || validYValues.length === 0) {
+    return `<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" width="${width}" height="${height}">
+  <text x="${width/2}" y="${height/2}" text-anchor="middle">No data available</text>
+</svg>`;
+  }
+
+  const xMin = Math.min(...allXValues);
+  const xMax = Math.max(...allXValues);
+  const yMin = Math.min(...validYValues);
+  const yMax = Math.max(...validYValues);
 
   const yRange = yMax - yMin;
-  const yPadding = yRange * 0.1;
+  const yPadding = yRange * 0.1 || 0.1;
   const yAxisMin = yMin - yPadding;
   const yAxisMax = yMax + yPadding;
 
   const scaleX = (v: number) => margin.left + ((v - xMin) / (xMax - xMin || 1)) * chartWidth;
   const scaleY = (v: number) => margin.top + chartHeight - ((v - yAxisMin) / (yAxisMax - yAxisMin || 1)) * chartHeight;
 
-  const originalPath = chartData
-    .map((d, i) => {
-      const x = scaleX(getXValue(d));
-      const y = scaleY(transformValue(d.value, yAxisTransform));
-      return `${i === 0 ? 'M' : 'L'} ${x} ${y}`;
-    })
-    .join(' ');
+  // Generate paths for each run
+  const runPaths: string[] = [];
+  const legendItems: string[] = [];
+  let legendY = margin.top + 15;
+  
+  allRunsData.forEach((chartData, runName) => {
+    const color = runColors.get(runName) || '#1f77b4';
+    
+    // Original line
+    const originalPath = chartData
+      .map((d, i) => {
+        const x = scaleX(d.x);
+        const yVal = transformValue(d.value, yAxisTransform);
+        const y = isNaN(yVal) || !isFinite(yVal) ? null : scaleY(yVal);
+        if (y === null) return null;
+        return `${i === 0 || chartData[i-1] === undefined ? 'M' : 'L'} ${x} ${y}`;
+      })
+      .filter(p => p !== null)
+      .join(' ');
+    
+    if (originalPath) {
+      const opacity = smoothing > 0 && showSmoothed ? 0.4 : 1;
+      runPaths.push(`<path d="${originalPath}" stroke="${color}" stroke-width="1.5" fill="none" opacity="${opacity}"/>`);
+    }
 
-  const smoothedPath = showSmoothed
-    ? chartData
+    // Smoothed line
+    if (showSmoothed && smoothing > 0) {
+      const smoothedPath = chartData
         .map((d, i) => {
-          const x = scaleX(getXValue(d));
-          const y = scaleY(transformValue(d.smoothedValue, yAxisTransform));
-          return `${i === 0 ? 'M' : 'L'} ${x} ${y}`;
+          const x = scaleX(d.x);
+          const yVal = transformValue(d.smoothedValue, yAxisTransform);
+          const y = isNaN(yVal) || !isFinite(yVal) ? null : scaleY(yVal);
+          if (y === null) return null;
+          return `${i === 0 || chartData[i-1] === undefined ? 'M' : 'L'} ${x} ${y}`;
         })
-        .join(' ')
-    : '';
+        .filter(p => p !== null)
+        .join(' ');
+      
+      if (smoothedPath) {
+        runPaths.push(`<path d="${smoothedPath}" stroke="${color}" stroke-width="2" fill="none"/>`);
+      }
+    }
+
+    // Legend entry for this run
+    legendItems.push(`
+    <line x1="${width - margin.right - 110}" y1="${legendY}" x2="${width - margin.right - 80}" y2="${legendY}" stroke="${color}" stroke-width="2"/>
+    <text x="${width - margin.right - 75}" y="${legendY + 4}" class="legend">${runName}</text>`);
+    legendY += 20;
+  });
 
   const xAxisLabel = xAxisType === 'step' ? 'Step' : xAxisType === 'relative' ? 'Relative Time (s)' : 'Wall Time (s)';
 
@@ -166,6 +210,8 @@ const generateSVG = (
     return n.toFixed(2);
   };
 
+  const legendHeight = allRunsData.size * 20 + 10;
+
   return `<?xml version="1.0" encoding="UTF-8"?>
 <svg xmlns="http://www.w3.org/2000/svg" width="${width}" height="${height}" viewBox="0 0 ${width} ${height}">
   <style>
@@ -176,8 +222,6 @@ const generateSVG = (
     .legend { font: 12px sans-serif; }
     .grid { stroke: #e0e0e0; stroke-width: 1; }
     .axis { stroke: #333; stroke-width: 1; }
-    .original-line { stroke: #1f77b4; stroke-width: 1.5; fill: none; }
-    .smoothed-line { stroke: #ff7f0e; stroke-width: 2; fill: none; }
   </style>
 
   <rect width="${width}" height="${height}" fill="white"/>
@@ -197,16 +241,10 @@ const generateSVG = (
   ${yTicks.map(tick => `<text x="${margin.left - 10}" y="${scaleY(tick) + 4}" text-anchor="end" class="tick-label">${formatNumber(tick)}</text>`).join('\n  ')}
   <text x="20" y="${height / 2}" text-anchor="middle" class="axis-label" transform="rotate(-90, 20, ${height / 2})">${yAxisLabel}</text>
 
-  <path d="${originalPath}" class="original-line"/>
-  ${showSmoothed && smoothing > 0 ? `<path d="${smoothedPath}" class="smoothed-line"/>` : ''}
+  ${runPaths.join('\n  ')}
 
-  <rect x="${width - margin.right - 120}" y="${margin.top}" width="110" height="${showSmoothed && smoothing > 0 ? 50 : 30}" fill="white" stroke="#ccc"/>
-  <line x1="${width - margin.right - 110}" y1="${margin.top + 15}" x2="${width - margin.right - 80}" y2="${margin.top + 15}" stroke="#1f77b4" stroke-width="2"/>
-  <text x="${width - margin.right - 75}" y="${margin.top + 19}" class="legend">Original</text>
-  ${showSmoothed && smoothing > 0 ? `
-  <line x1="${width - margin.right - 110}" y1="${margin.top + 35}" x2="${width - margin.right - 80}" y2="${margin.top + 35}" stroke="#ff7f0e" stroke-width="2"/>
-  <text x="${width - margin.right - 75}" y="${margin.top + 39}" class="legend">Smoothed</text>
-  ` : ''}
+  <rect x="${width - margin.right - 120}" y="${margin.top}" width="110" height="${legendHeight}" fill="white" stroke="#ccc"/>
+  ${legendItems.join('\n  ')}
 </svg>`;
 };
 
@@ -386,15 +424,26 @@ const ScalarChart = forwardRef<ScalarChartHandle, ScalarChartProps>(function Sca
     }
   };
 
-  const handleDownloadSVG = (tag: string, run: string) => {
-    const series = getSeriesForRun(tag, run);
-    const svgContent = generateSVG(series, tag, xAxisType, yAxisTransform, smoothing, showSmoothed);
+  const handleDownloadSVG = (tag: string, tagRuns: string[]) => {
+    // Collect data for all runs
+    const allRunsData = new Map<string, SingleRunPoint[]>();
+    const runColors = new Map<string, string>();
+    
+    for (const run of tagRuns) {
+      const series = getSeriesForRun(tag, run);
+      if (series.length > 0) {
+        allRunsData.set(run, series);
+        runColors.set(run, getRunColor(runs.indexOf(run)));
+      }
+    }
+    
+    const svgContent = generateSVG(allRunsData, tag, xAxisType, yAxisTransform, smoothing, showSmoothed, runColors);
 
     const blob = new Blob([svgContent], { type: 'image/svg+xml' });
     const url = URL.createObjectURL(blob);
     const link = document.createElement('a');
     link.href = url;
-    link.download = `${tag.replace(/\//g, '_')}_${run}_chart.svg`;
+    link.download = `${tag.replace(/\//g, '_')}_chart.svg`;
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
@@ -558,7 +607,7 @@ const ScalarChart = forwardRef<ScalarChartHandle, ScalarChartProps>(function Sca
                               className="download-btn"
                               onClick={(e) => {
                                 e.stopPropagation();
-                                handleDownloadSVG(tag, tagRuns[0]);
+                                handleDownloadSVG(tag, tagRuns);
                               }}
                               title="Download as SVG (vector image for papers)"
                             >
