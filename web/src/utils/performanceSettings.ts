@@ -36,11 +36,16 @@ export function usePerformanceSettings() {
   // Save settings to localStorage whenever they change
   useEffect(() => {
     localStorage.setItem('burnboard-performance-settings', JSON.stringify(settings));
-    // Update base settings when user manually changes them
+    // Update base settings when user manually changes them (not during auto-adjust)
+    // We track this by checking if we're not in the middle of auto-adjustment
+  }, [settings]);
+
+  // Separate effect to update base settings when auto-adjust is disabled
+  useEffect(() => {
     if (!settings.autoAdjust) {
       baseSettings.current = settings;
     }
-  }, [settings]);
+  }, [settings.autoAdjust, settings.scalarMaxPoints, settings.histogramMaxPoints]);
 
   /**
    * Record network latency for adaptive adjustment
@@ -95,6 +100,8 @@ export function usePerformanceSettings() {
     baseSettings.current = newSettings;
     setSettings(newSettings);
     metricsHistory.current = []; // Reset metrics when settings change
+    // Immediately save to localStorage
+    localStorage.setItem('burnboard-performance-settings', JSON.stringify(newSettings));
   };
 
   return {

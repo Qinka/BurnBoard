@@ -24,12 +24,21 @@ const PRESET_OPTIONS = [
 function SettingsModal({ isOpen, onClose, settings, onSettingsChange }: SettingsModalProps) {
   const [localSettings, setLocalSettings] = useState(settings);
 
+  // Update local settings when modal opens with new settings
   useEffect(() => {
-    setLocalSettings(settings);
-  }, [settings]);
+    if (isOpen) {
+      setLocalSettings(settings);
+    }
+  }, [isOpen, settings]);
 
   const handleSave = () => {
     onSettingsChange(localSettings);
+    onClose();
+  };
+
+  const handleCancel = () => {
+    // Reset to original settings without saving
+    setLocalSettings(settings);
     onClose();
   };
 
@@ -44,11 +53,11 @@ function SettingsModal({ isOpen, onClose, settings, onSettingsChange }: Settings
   if (!isOpen) return null;
 
   return (
-    <div className="settings-modal-overlay" onClick={onClose}>
+    <div className="settings-modal-overlay" onClick={handleCancel}>
       <div className="settings-modal" onClick={(e) => e.stopPropagation()}>
         <div className="settings-modal-header">
           <h2>性能设置 / Performance Settings</h2>
-          <button className="settings-close-btn" onClick={onClose}>×</button>
+          <button className="settings-close-btn" onClick={handleCancel}>×</button>
         </div>
         
         <div className="settings-modal-content">
@@ -167,7 +176,7 @@ function SettingsModal({ isOpen, onClose, settings, onSettingsChange }: Settings
         </div>
 
         <div className="settings-modal-footer">
-          <button className="settings-btn settings-btn-secondary" onClick={onClose}>
+          <button className="settings-btn settings-btn-secondary" onClick={handleCancel}>
             取消
           </button>
           <button className="settings-btn settings-btn-primary" onClick={handleSave}>
