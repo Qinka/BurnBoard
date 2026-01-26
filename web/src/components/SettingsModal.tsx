@@ -30,12 +30,25 @@ const PRESET_OPTIONS = [
 ];
 
 const REFRESH_INTERVALS = [
-  { value: 1, label: '1秒' },
-  { value: 5, label: '5秒' },
-  { value: 10, label: '10秒' },
-  { value: 30, label: '30秒' },
-  { value: 60, label: '60秒' },
+  { value: 1, label: '1秒', scalarMultiplier: 0.5, histogramMultiplier: 0.5 },
+  { value: 5, label: '5秒', scalarMultiplier: 1.0, histogramMultiplier: 1.0 },
+  { value: 10, label: '10秒', scalarMultiplier: 1.5, histogramMultiplier: 1.5 },
+  { value: 30, label: '30秒', scalarMultiplier: 2.5, histogramMultiplier: 2.5 },
+  { value: 60, label: '60秒', scalarMultiplier: 4.0, histogramMultiplier: 4.0 },
 ];
+
+// Helper function to calculate adjusted sampling points based on refresh interval
+function getAdjustedSamplingPoints(baseScalar: number, baseHistogram: number, refreshInterval: number) {
+  const intervalConfig = REFRESH_INTERVALS.find(i => i.value === refreshInterval);
+  if (!intervalConfig) {
+    return { scalar: baseScalar, histogram: baseHistogram };
+  }
+  
+  return {
+    scalar: Math.round(baseScalar * intervalConfig.scalarMultiplier),
+    histogram: Math.round(baseHistogram * intervalConfig.histogramMultiplier),
+  };
+}
 
 function SettingsModal({ 
   isOpen, 
@@ -65,13 +78,39 @@ function SettingsModal({
     onClose();
   };
 
-  const handleModeChange = (mode: SamplingMode, scalar: number, histogram: number) => {
+  const handleModeChange = (mode: SamplingMode, baseScalar: number, baseHistogram: number) => {
+    // Apply refresh interval multiplier to get adjusted sampling points
+    const adjusted = getAdjustedSamplingPoints(baseScalar, baseHistogram, localSettings.refreshInterval);
+    
     setLocalSettings({
       ...localSettings,
       mode,
-      scalarMaxPoints: scalar,
-      histogramMaxPoints: histogram,
+      scalarMaxPoints: adjusted.scalar,
+      histogramMaxPoints: adjusted.histogram,
       autoAdjust: mode === 'auto',
+    });
+  };
+
+  const handleRefreshIntervalChange = (newInterval: number) => {
+    // When refresh interval changes, adjust sampling points for non-custom modes
+    if (localSettings.mode !== 'custom') {
+      const preset = PRESET_OPTIONS.find(p => p.mode === localSettings.mode);
+      if (preset) {
+        const adjusted = getAdjustedSamplingPoints(preset.scalar, preset.histogram, newInterval);
+        setLocalSettings({
+          ...localSettings,
+          refreshInterval: newInterval,
+          scalarMaxPoints: adjusted.scalar,
+          histogramMaxPoints: adjusted.histogram,
+        });
+        return;
+      }
+    }
+    
+    // For custom mode, just update the interval
+    setLocalSettings({
+      ...localSettings,
+      refreshInterval: newInterval,
     });
   };
 
@@ -92,7 +131,7 @@ function SettingsModal({
           <div className="settings-section">
             <h3>采样模式</h3>
             <p className="settings-description">
-              选择采样模式。自动模式根据网络情况调整，预设模式使用固定值，自定义模式允许精确设置。
+              选择采样模式。自动模式根据网络情况调整，预设模式使用固定值（根据刷新间隔自动调整），自定义模式允许精确设置。
             </p>
             
             <div className="settings-presets">
@@ -175,12 +214,7 @@ function SettingsModal({
                 刷新间隔:
                 <select
                   value={localSettings.refreshInterval}
-                  onChange={(e) =>
-                    setLocalSettings({
-                      ...localSettings,
-                      refreshInterval: parseInt(e.target.value),
-                    })
-                  }
+                  onChange={(e) => handleRefreshIntervalChange(parseInt(e.target.value))}
                   className="refresh-interval-select"
                 >
                   {REFRESH_INTERVALS.map((interval) => (
@@ -190,6 +224,9 @@ function SettingsModal({
                   ))}
                 </select>
               </label>
+              <p className="settings-info" style={{ marginTop: '8px', fontSize: '12px' }}>
+                ℹ️ 刷新间隔越长，采样点数自动增加以获取更多数据
+              </p>
             </div>
           </div>
 
