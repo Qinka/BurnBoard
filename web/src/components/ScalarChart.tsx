@@ -147,35 +147,56 @@ const generateSVG = (
   allRunsData.forEach((chartData, runName) => {
     const color = runColors.get(runName) || '#1f77b4';
     
-    // Original line
-    const originalPath = chartData
-      .map((d, i) => {
-        const x = scaleX(d.x);
-        const yVal = transformValue(d.value, yAxisTransform);
-        const y = isNaN(yVal) || !isFinite(yVal) ? null : scaleY(yVal);
-        if (y === null) return null;
-        return `${i === 0 || chartData[i-1] === undefined ? 'M' : 'L'} ${x} ${y}`;
-      })
-      .filter(p => p !== null)
-      .join(' ');
+    // Build original line path - track if previous point was valid for proper M/L commands
+    const originalPathParts: string[] = [];
+    let prevWasValid = false;
+    
+    for (let i = 0; i < chartData.length; i++) {
+      const d = chartData[i];
+      const x = scaleX(d.x);
+      const yVal = transformValue(d.value, yAxisTransform);
+      
+      if (isNaN(yVal) || !isFinite(yVal)) {
+        prevWasValid = false;
+        continue;
+      }
+      
+      const y = scaleY(yVal);
+      // Use 'M' if this is the first valid point or if previous point was invalid
+      const command = prevWasValid ? 'L' : 'M';
+      originalPathParts.push(`${command} ${x} ${y}`);
+      prevWasValid = true;
+    }
+    
+    const originalPath = originalPathParts.join(' ');
     
     if (originalPath) {
       const opacity = smoothing > 0 && showSmoothed ? 0.4 : 1;
       runPaths.push(`<path d="${originalPath}" stroke="${color}" stroke-width="1.5" fill="none" opacity="${opacity}"/>`);
     }
 
-    // Smoothed line
+    // Build smoothed line path
     if (showSmoothed && smoothing > 0) {
-      const smoothedPath = chartData
-        .map((d, i) => {
-          const x = scaleX(d.x);
-          const yVal = transformValue(d.smoothedValue, yAxisTransform);
-          const y = isNaN(yVal) || !isFinite(yVal) ? null : scaleY(yVal);
-          if (y === null) return null;
-          return `${i === 0 || chartData[i-1] === undefined ? 'M' : 'L'} ${x} ${y}`;
-        })
-        .filter(p => p !== null)
-        .join(' ');
+      const smoothedPathParts: string[] = [];
+      prevWasValid = false;
+      
+      for (let i = 0; i < chartData.length; i++) {
+        const d = chartData[i];
+        const x = scaleX(d.x);
+        const yVal = transformValue(d.smoothedValue, yAxisTransform);
+        
+        if (isNaN(yVal) || !isFinite(yVal)) {
+          prevWasValid = false;
+          continue;
+        }
+        
+        const y = scaleY(yVal);
+        const command = prevWasValid ? 'L' : 'M';
+        smoothedPathParts.push(`${command} ${x} ${y}`);
+        prevWasValid = true;
+      }
+      
+      const smoothedPath = smoothedPathParts.join(' ');
       
       if (smoothedPath) {
         runPaths.push(`<path d="${smoothedPath}" stroke="${color}" stroke-width="2" fill="none"/>`);
