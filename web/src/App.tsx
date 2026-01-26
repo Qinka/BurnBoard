@@ -238,7 +238,12 @@ function App() {
         isOpen={showSettings}
         onClose={() => setShowSettings(false)}
         settings={settings}
-        onSettingsChange={updateSettings}
+        currentScalarPoints={settings.scalarMaxPoints}
+        currentHistogramPoints={settings.histogramMaxPoints}
+        onSettingsChange={(newSettings) => {
+          updateSettings(newSettings);
+          setRefreshInterval(newSettings.refreshInterval);
+        }}
       />
 
       {/* Footer */}

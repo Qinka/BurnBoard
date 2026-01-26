@@ -1,27 +1,50 @@
 import { useState, useEffect } from 'react';
 import './SettingsModal.css';
 
+export type SamplingMode = 'auto' | 'low' | 'medium' | 'high' | 'maximum' | 'custom';
+
 export interface PerformanceSettings {
   scalarMaxPoints: number;
   histogramMaxPoints: number;
   autoAdjust: boolean;
+  mode: SamplingMode;
+  refreshInterval: number; // in seconds
 }
 
 interface SettingsModalProps {
   isOpen: boolean;
   onClose: () => void;
   settings: PerformanceSettings;
+  currentScalarPoints?: number; // Real-time value shown in auto mode
+  currentHistogramPoints?: number; // Real-time value shown in auto mode
   onSettingsChange: (settings: PerformanceSettings) => void;
 }
 
 const PRESET_OPTIONS = [
-  { label: '低 (100/50)', scalar: 100, histogram: 50 },
-  { label: '中 (200/100)', scalar: 200, histogram: 100 },
-  { label: '高 (500/200)', scalar: 500, histogram: 200 },
-  { label: '最高 (1000/500)', scalar: 1000, histogram: 500 },
+  { mode: 'auto' as SamplingMode, label: '自动', scalar: 200, histogram: 100 },
+  { mode: 'low' as SamplingMode, label: '低 (100/50)', scalar: 100, histogram: 50 },
+  { mode: 'medium' as SamplingMode, label: '中 (200/100)', scalar: 200, histogram: 100 },
+  { mode: 'high' as SamplingMode, label: '高 (500/200)', scalar: 500, histogram: 200 },
+  { mode: 'maximum' as SamplingMode, label: '最高 (1000/500)', scalar: 1000, histogram: 500 },
+  { mode: 'custom' as SamplingMode, label: '自定义', scalar: 200, histogram: 100 },
 ];
 
-function SettingsModal({ isOpen, onClose, settings, onSettingsChange }: SettingsModalProps) {
+const REFRESH_INTERVALS = [
+  { value: 1, label: '1秒' },
+  { value: 5, label: '5秒' },
+  { value: 10, label: '10秒' },
+  { value: 30, label: '30秒' },
+  { value: 60, label: '60秒' },
+];
+
+function SettingsModal({ 
+  isOpen, 
+  onClose, 
+  settings, 
+  currentScalarPoints,
+  currentHistogramPoints,
+  onSettingsChange 
+}: SettingsModalProps) {
   const [localSettings, setLocalSettings] = useState(settings);
 
   // Update local settings when modal opens with new settings
@@ -42,14 +65,18 @@ function SettingsModal({ isOpen, onClose, settings, onSettingsChange }: Settings
     onClose();
   };
 
-  const handlePreset = (scalar: number, histogram: number) => {
+  const handleModeChange = (mode: SamplingMode, scalar: number, histogram: number) => {
     setLocalSettings({
       ...localSettings,
+      mode,
       scalarMaxPoints: scalar,
       histogramMaxPoints: histogram,
-      autoAdjust: false, // Disable auto-adjust when user selects a preset
+      autoAdjust: mode === 'auto',
     });
   };
+
+  const isCustomMode = localSettings.mode === 'custom';
+  const isAutoMode = localSettings.mode === 'auto';
 
   if (!isOpen) return null;
 
@@ -63,24 +90,20 @@ function SettingsModal({ isOpen, onClose, settings, onSettingsChange }: Settings
         
         <div className="settings-modal-content">
           <div className="settings-section">
-            <h3>采样点数设置</h3>
+            <h3>采样模式</h3>
             <p className="settings-description">
-              设置每个指标的最大数据点数。更少的点数可提高渲染性能，但可能损失细节。
+              选择采样模式。自动模式根据网络情况调整，预设模式使用固定值，自定义模式允许精确设置。
             </p>
             
             <div className="settings-presets">
-              <label>预设配置：</label>
               <div className="preset-buttons">
-                {PRESET_OPTIONS.map((preset, idx) => (
+                {PRESET_OPTIONS.map((preset) => (
                   <button
-                    key={idx}
+                    key={preset.mode}
                     className={`preset-btn ${
-                      localSettings.scalarMaxPoints === preset.scalar &&
-                      localSettings.histogramMaxPoints === preset.histogram
-                        ? 'active'
-                        : ''
+                      localSettings.mode === preset.mode ? 'active' : ''
                     }`}
-                    onClick={() => handlePreset(preset.scalar, preset.histogram)}
+                    onClick={() => handleModeChange(preset.mode, preset.scalar, preset.histogram)}
                   >
                     {preset.label}
                   </button>
@@ -96,16 +119,21 @@ function SettingsModal({ isOpen, onClose, settings, onSettingsChange }: Settings
                   min="50"
                   max="5000"
                   step="50"
-                  value={localSettings.scalarMaxPoints}
+                  value={isAutoMode && currentScalarPoints !== undefined ? currentScalarPoints : localSettings.scalarMaxPoints}
                   onChange={(e) =>
                     setLocalSettings({
                       ...localSettings,
                       scalarMaxPoints: parseInt(e.target.value) || 200,
-                      autoAdjust: false, // Disable auto-adjust when user manually changes values
                     })
                   }
+                  disabled={!isCustomMode}
                 />
-                <span className="input-hint">当前: {localSettings.scalarMaxPoints} 点/指标</span>
+                <span className="input-hint">
+                  {isAutoMode ? 
+                    `实时: ${currentScalarPoints !== undefined ? currentScalarPoints : localSettings.scalarMaxPoints} 点/指标 (自适应)` : 
+                    `当前: ${localSettings.scalarMaxPoints} 点/指标`
+                  }
+                </span>
               </label>
             </div>
 
@@ -117,61 +145,79 @@ function SettingsModal({ isOpen, onClose, settings, onSettingsChange }: Settings
                   min="50"
                   max="1000"
                   step="50"
-                  value={localSettings.histogramMaxPoints}
+                  value={isAutoMode && currentHistogramPoints !== undefined ? currentHistogramPoints : localSettings.histogramMaxPoints}
                   onChange={(e) =>
                     setLocalSettings({
                       ...localSettings,
                       histogramMaxPoints: parseInt(e.target.value) || 100,
-                      autoAdjust: false, // Disable auto-adjust when user manually changes values
                     })
                   }
+                  disabled={!isCustomMode}
                 />
-                <span className="input-hint">当前: {localSettings.histogramMaxPoints} 点/指标</span>
+                <span className="input-hint">
+                  {isAutoMode ? 
+                    `实时: ${currentHistogramPoints !== undefined ? currentHistogramPoints : localSettings.histogramMaxPoints} 点/指标 (自适应)` : 
+                    `当前: ${localSettings.histogramMaxPoints} 点/指标`
+                  }
+                </span>
               </label>
             </div>
           </div>
 
           <div className="settings-section">
-            <h3>自动调整</h3>
+            <h3>更新速率</h3>
             <p className="settings-description">
-              根据网络延迟和速度自动调整采样点数，以优化性能。
+              设置自动刷新的时间间隔。
             </p>
             
-            <div className="settings-checkbox-group">
-              <label className="settings-checkbox">
-                <input
-                  type="checkbox"
-                  checked={localSettings.autoAdjust}
+            <div className="settings-input-group">
+              <label>
+                刷新间隔:
+                <select
+                  value={localSettings.refreshInterval}
                   onChange={(e) =>
                     setLocalSettings({
                       ...localSettings,
-                      autoAdjust: e.target.checked,
+                      refreshInterval: parseInt(e.target.value),
                     })
                   }
-                />
-                <span>启用网络自适应采样</span>
+                  className="refresh-interval-select"
+                >
+                  {REFRESH_INTERVALS.map((interval) => (
+                    <option key={interval.value} value={interval.value}>
+                      {interval.label}
+                    </option>
+                  ))}
+                </select>
               </label>
-              {localSettings.autoAdjust && (
-                <p className="settings-info">
-                  ℹ️ 系统将监测API请求延迟，并自动降低采样点数以保持流畅性能。
-                </p>
-              )}
             </div>
           </div>
 
           <div className="settings-impact">
-            <h4>性能影响估算</h4>
+            <h4>当前配置</h4>
             <div className="impact-grid">
               <div className="impact-item">
-                <span className="impact-label">标量数据量:</span>
+                <span className="impact-label">模式:</span>
                 <span className="impact-value">
-                  约 {Math.round(localSettings.scalarMaxPoints * 5 / 1000)} KB/次
+                  {PRESET_OPTIONS.find(p => p.mode === localSettings.mode)?.label || '未知'}
                 </span>
               </div>
               <div className="impact-item">
-                <span className="impact-label">渲染点数:</span>
+                <span className="impact-label">刷新间隔:</span>
                 <span className="impact-value">
-                  {localSettings.scalarMaxPoints} 点/图表
+                  {localSettings.refreshInterval}秒
+                </span>
+              </div>
+              <div className="impact-item">
+                <span className="impact-label">标量采样:</span>
+                <span className="impact-value">
+                  {isAutoMode && currentScalarPoints !== undefined ? currentScalarPoints : localSettings.scalarMaxPoints} 点
+                </span>
+              </div>
+              <div className="impact-item">
+                <span className="impact-label">直方图采样:</span>
+                <span className="impact-value">
+                  {isAutoMode && currentHistogramPoints !== undefined ? currentHistogramPoints : localSettings.histogramMaxPoints} 点
                 </span>
               </div>
             </div>
