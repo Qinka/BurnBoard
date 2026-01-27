@@ -13,7 +13,7 @@ A TensorBoard-compatible visualization dashboard built with Rust and React.
 
 - **Axum-based Server**
   - RESTful APIs for exposing parsed data
-  - Endpoints: `/api/scalars`, `/api/histograms`
+  - Endpoints: `/api/scalars`, `/api/histograms`, `/api/images`
   - Static file serving for the web frontend
   - Efficient event loading from log directories
 
@@ -21,6 +21,7 @@ A TensorBoard-compatible visualization dashboard built with Rust and React.
   - Interactive data visualization using Recharts
   - Scalar value line charts
   - Histogram statistics bar charts
+  - Image gallery with step-based navigation
   - Tag selection and filtering
   - Modern, responsive UI
 
@@ -46,7 +47,8 @@ BurnBoard/
 │   │   ├── App.jsx             # Main app component
 │   │   ├── components/         # UI components
 │   │   │   ├── ScalarChart.jsx
-│   │   │   └── HistogramChart.jsx
+│   │   │   ├── HistogramChart.jsx
+│   │   │   └── ImageGallery.tsx
 │   │   └── ...
 │   ├── package.json
 │   └── vite.config.js
@@ -104,16 +106,19 @@ cargo run --release --bin burnboard-server
 use burnboard::{EventWriter, Result};
 
 fn main() -> Result<()> {
-    let mut writer = EventWriter::create("./logs/events.tfevents")?;
+    let mut writer = EventWriter::new("./logs")?;
     
     // Log scalar values
-    writer.set_step(0);
-    writer.add_scalar("train/loss", 0.5)?;
-    writer.add_scalar("train/accuracy", 0.95)?;
+    writer.add_scalar("train/loss", 0.5, 0)?;
+    writer.add_scalar("train/accuracy", 0.95, 0)?;
     
     // Log histograms
     let weights = vec![0.1, 0.2, 0.15, 0.25, 0.3];
-    writer.add_histogram("model/weights", &weights)?;
+    writer.add_histogram("model/weights", &weights, 0)?;
+    
+    // Log images (PNG-encoded bytes)
+    let png_data: Vec<u8> = load_image(); // Your image loading code
+    writer.add_image("visualization/sample", 64, 64, png_data, 0)?;
     
     Ok(())
 }
@@ -124,6 +129,7 @@ fn main() -> Result<()> {
 - `GET /health` - Health check
 - `GET /api/scalars` - Retrieve all scalar data
 - `GET /api/histograms` - Retrieve all histogram data
+- `GET /api/images` - Retrieve all image data (base64 encoded)
 - `GET /` - Serve the web frontend
 
 ## Development
@@ -165,6 +171,9 @@ This will clean and reinstall all dependencies including `react-is` which is req
 
 ### Histogram Visualization
 ![Histogram Chart](https://github.com/user-attachments/assets/76b84ea9-d4b3-429f-a180-401aa28bf680)
+
+### Image Visualization
+![Image Gallery](https://github.com/user-attachments/assets/a3b51150-eda0-4779-8996-f61f020bea8a)
 
 ## License
 

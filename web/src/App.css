@@ -1081,3 +1081,115 @@
     padding: 1rem;
   }
 }
+
+/* ============================================
+   Image Gallery Styles
+   ============================================ */
+
+.image-gallery-content {
+  padding: 1rem;
+}
+
+.image-gallery-grid {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 1.5rem;
+  justify-content: flex-start;
+}
+
+.image-gallery-item {
+  flex: 1 1 300px;
+  max-width: 100%;
+  background-color: var(--bg-surface);
+  border-radius: 8px;
+  border: 1px solid var(--border-subtle);
+  border-left-width: 4px;
+  padding: 1rem;
+  transition: box-shadow 0.2s ease;
+}
+
+.image-gallery-item:hover {
+  box-shadow: var(--shadow-md);
+}
+
+.image-gallery-header {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  align-items: center;
+  gap: 0.75rem;
+  margin-bottom: 0.75rem;
+  padding-bottom: 0.75rem;
+  border-bottom: 1px solid var(--border-subtle);
+}
+
+.image-run-name {
+  font-weight: 600;
+  font-size: 0.9rem;
+  color: var(--text-primary);
+}
+
+.image-step-control {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  flex-wrap: wrap;
+}
+
+.image-step-control label {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: 0.85rem;
+  color: var(--text-secondary);
+}
+
+.step-selector {
+  padding: 0.35rem 0.5rem;
+  font-size: 0.85rem;
+  border-radius: 4px;
+  border: 1px solid var(--border-medium);
+  background-color: var(--bg-surface-elevated);
+  color: var(--text-primary);
+  cursor: pointer;
+  min-width: 80px;
+}
+
+.step-selector:hover {
+  border-color: var(--primary-orange);
+}
+
+.step-slider {
+  width: 120px;
+  height: 6px;
+  cursor: pointer;
+  accent-color: var(--primary-orange);
+}
+
+.image-container {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.image-container img {
+  border-radius: 4px;
+  border: 1px solid var(--border-subtle);
+  background-color: var(--bg-surface-elevated);
+  object-fit: contain;
+}
+
+.image-info {
+  display: flex;
+  gap: 1.5rem;
+  justify-content: center;
+  color: var(--text-muted);
+  font-size: 0.8rem;
+}
+
+.image-info span {
+  display: flex;
+  align-items: center;
+  gap: 0.25rem;
+}

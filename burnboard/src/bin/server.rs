@@ -5,6 +5,7 @@ use axum::{
     routing::get,
     Json, Router,
 };
+use base64::{Engine as _, engine::general_purpose};
 use burnboard::{Event, EventFileParser};
 use serde::{Deserialize, Serialize};
 use std::path::PathBuf;
@@ -82,6 +83,19 @@ struct HistogramData {
     num: f64,
     sum: f64,
     sum_squares: f64,
+    run: String,  // The run (subdirectory) this data belongs to
+}
+
+#[derive(Serialize, Deserialize, Clone)]
+struct ImageData {
+    tag: String,
+    step: i64,
+    wall_time: f64,
+    height: i32,
+    width: i32,
+    colorspace: i32,
+    /// Base64-encoded image data
+    encoded_image: String,
     run: String,  // The run (subdirectory) this data belongs to
 }
 
@@ -345,6 +359,91 @@ async fn get_histograms(
     }))
 }
 
+// Handler: Get image data
+async fn get_images(
+    State(state): State<AppState>,
+    Query(query): Query<DataQuery>,
+) -> Result<Json<ApiResponse<Vec<ImageData>>>, AppError> {
+    let events = state.events.read().await;
+    
+    // Parse filter parameters
+    let tag_filter: Option<Vec<String>> = query.tags.as_ref().map(|tags| 
+        tags.split(',').map(|s| s.trim().to_string()).collect()
+    );
+    let run_filter: Option<Vec<String>> = query.runs.as_ref().map(|runs| 
+        runs.split(',').map(|s| s.trim().to_string()).collect()
+    );
+    
+    // Group images by tag and run for sampling
+    let mut grouped_images: std::collections::HashMap<(String, String), Vec<ImageData>> = std::collections::HashMap::new();
+
+    for event_with_run in events.iter() {
+        // Apply run filter
+        if let Some(ref runs) = run_filter {
+            if !runs.contains(&event_with_run.run) {
+                continue;
+            }
+        }
+        
+        // Apply step filter for incremental updates
+        if let Some(since_step) = query.since_step {
+            if event_with_run.event.step <= since_step {
+                continue;
+            }
+        }
+        
+        if let Some(burnboard::proto::event::What::Summary(summary)) = &event_with_run.event.what {
+            for value in &summary.value {
+                // Apply tag filter
+                if let Some(ref tags) = tag_filter {
+                    if !tags.contains(&value.tag) {
+                        continue;
+                    }
+                }
+                
+                if let Some(burnboard::proto::summary::value::Value::Image(img)) = &value.value {
+                    let key = (value.tag.clone(), event_with_run.run.clone());
+                    let encoded_image = general_purpose::STANDARD.encode(&img.encoded_image_string);
+                    grouped_images.entry(key).or_insert_with(Vec::new).push(ImageData {
+                        tag: value.tag.clone(),
+                        step: event_with_run.event.step,
+                        wall_time: event_with_run.event.wall_time,
+                        height: img.height,
+                        width: img.width,
+                        colorspace: img.colorspace,
+                        encoded_image,
+                        run: event_with_run.run.clone(),
+                    });
+                }
+            }
+        }
+    }
+    
+    // Apply sampling and collect results
+    let mut images = Vec::new();
+    let max_points = query.max_points.unwrap_or(usize::MAX);
+    
+    for (_, mut data) in grouped_images {
+        // Sort by step for consistent sampling
+        data.sort_by_key(|d| d.step);
+        
+        // Apply sampling if needed
+        let sampled_data = if data.len() > max_points {
+            sample_data(data, max_points, |d| d.step)
+        } else {
+            data
+        };
+        
+        images.extend(sampled_data);
+    }
+
+    let count = images.len();
+    Ok(Json(ApiResponse {
+        data: images,
+        count,
+    }))
+}
+
 // Handler: Health check
 async fn health_check() -> &'static str {
     "OK"
@@ -483,6 +582,7 @@ async fn main() -> anyhow::Result<()> {
         .route("/health", get(health_check))
         .route("/api/scalars", get(get_scalars))
         .route("/api/histograms", get(get_histograms))
+        .route("/api/images", get(get_images))
         .fallback_service(ServeDir::new("assets/web"))
         .with_state(state);
 
