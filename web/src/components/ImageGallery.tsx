@@ -204,13 +204,6 @@ const ImageGallery = forwardRef<ImageGalleryHandle, ImageGalleryProps>(function 
     return selectedSteps.get(key);
   };
 
-  // Get MIME type for the image - we use PNG for all images
-  const getImageMimeType = (): string => {
-    // Common colorspaces: 1 = grayscale, 3 = RGB, 4 = RGBA
-    // We'll default to PNG for most cases
-    return 'image/png';
-  };
-
   if (loading) {
     return <div className="loading">Loading image data...</div>;
   }
@@ -349,7 +342,7 @@ const ImageGallery = forwardRef<ImageGalleryHandle, ImageGalleryProps>(function 
                                         {image && (
                                           <div className="image-container">
                                             <img
-                                              src={`data:${getImageMimeType()};base64,${image.encoded_image}`}
+                                              src={`data:image/png;base64,${image.encoded_image}`}
                                               alt={`${tag} - ${run} - Step ${selectedStep}`}
                                               style={{ maxWidth: '100%', maxHeight: height - 60 }}
                                             />
