@@ -1186,7 +1186,7 @@
   object-fit: contain;
 }
 
-.image-scale-control {
+.image-zoom-control {
   display: flex;
   align-items: center;
   gap: 0.75rem;
@@ -1196,17 +1196,13 @@
   border-radius: 4px;
 }
 
-.scale-label {
+.zoom-label {
   font-size: 0.85rem;
   color: var(--text-secondary);
+  white-space: nowrap;
 }
 
-.scale-buttons {
-  display: flex;
-  gap: 0.25rem;
-}
-
-.scale-btn {
+.zoom-fit-btn {
   padding: 0.35rem 0.6rem;
   font-size: 0.8rem;
   border: 1px solid var(--border-medium);
@@ -1215,17 +1211,34 @@
   border-radius: 4px;
   cursor: pointer;
   transition: all 0.2s ease;
+  white-space: nowrap;
 }
 
-.scale-btn:hover {
+.zoom-fit-btn:hover {
   border-color: var(--primary-orange);
   color: var(--primary-orange);
 }
 
-.scale-btn.active {
+.zoom-fit-btn.active {
   background-color: var(--primary-orange);
   border-color: var(--primary-orange);
   color: white;
+}
+
+.zoom-slider {
+  flex: 1;
+  min-width: 100px;
+  max-width: 200px;
+  height: 6px;
+  cursor: pointer;
+  accent-color: var(--primary-orange);
+}
+
+.zoom-value {
+  font-size: 0.8rem;
+  color: var(--text-secondary);
+  min-width: 50px;
+  text-align: right;
 }
 
 .image-info {

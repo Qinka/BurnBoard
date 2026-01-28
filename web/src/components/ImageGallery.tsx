@@ -14,7 +14,8 @@ interface ImageData {
   run: string;
 }
 
-type ImageScaleMode = 'fit' | 'actual' | 'zoom-2x' | 'zoom-4x';
+// Zoom level: 0.5 = 50%, 1 = 100%, 2 = 200%, etc. 0 means "fit to container"
+type ZoomLevel = number;
 
 interface ImageApiResponse {
   data: ImageData[];
@@ -45,7 +46,7 @@ const ImageGallery = forwardRef<ImageGalleryHandle, ImageGalleryProps>(function 
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [selectedSteps, setSelectedSteps] = useState<Map<string, number>>(new Map());
-  const [imageScaleModes, setImageScaleModes] = useState<Map<string, ImageScaleMode>>(new Map());
+  const [imageZoomLevels, setImageZoomLevels] = useState<Map<string, ZoomLevel>>(new Map());
 
   const tagGroups = useMemo(() => groupTagsByPrefix(tags), [tags]);
 
@@ -207,84 +208,73 @@ const ImageGallery = forwardRef<ImageGalleryHandle, ImageGalleryProps>(function 
     return selectedSteps.get(key);
   };
 
-  // Get scale mode for a specific image
-  const getScaleMode = (tag: string, run: string): ImageScaleMode => {
+  // Get zoom level for a specific image (0 = fit, otherwise it's a multiplier like 1, 2, 4)
+  const getZoomLevel = (tag: string, run: string): ZoomLevel => {
     const key = `${tag}|${run}`;
-    return imageScaleModes.get(key) || 'fit';
+    return imageZoomLevels.get(key) ?? 0; // Default to fit mode (0)
   };
 
-  // Set scale mode for a specific image
-  const handleScaleModeChange = (tag: string, run: string, mode: ImageScaleMode) => {
+  // Set zoom level for a specific image
+  const handleZoomChange = (tag: string, run: string, zoom: ZoomLevel) => {
     const key = `${tag}|${run}`;
-    setImageScaleModes(prev => {
+    setImageZoomLevels(prev => {
       const updated = new Map(prev);
-      updated.set(key, mode);
+      updated.set(key, zoom);
       return updated;
     });
   };
 
-  // Calculate image display style based on scale mode
-  const getImageStyle = (image: ImageData, scaleMode: ImageScaleMode, containerHeight: number): React.CSSProperties => {
+  // Calculate image display style based on zoom level
+  const getImageStyle = (image: ImageData, zoomLevel: ZoomLevel, containerHeight: number): React.CSSProperties => {
     const maxContainerHeight = containerHeight - 100; // Account for header and info
     
-    switch (scaleMode) {
-      case 'actual':
-        return {
-          width: image.width,
-          height: image.height,
-          maxWidth: 'none',
-          maxHeight: 'none',
-        };
-      case 'zoom-2x':
-        return {
-          width: image.width * 2,
-          height: image.height * 2,
-          maxWidth: 'none',
-          maxHeight: 'none',
-          imageRendering: 'pixelated',
-        };
-      case 'zoom-4x':
-        return {
-          width: image.width * 4,
-          height: image.height * 4,
-          maxWidth: 'none',
-          maxHeight: 'none',
-          imageRendering: 'pixelated',
-        };
-      case 'fit':
-      default:
-        // For small images, scale up to fill container while maintaining aspect ratio
-        // For large images, scale down to fit
-        const aspectRatio = image.width / image.height;
-        const containerWidth = 400; // Approximate container width
-        
-        let displayWidth = containerWidth;
-        let displayHeight = containerWidth / aspectRatio;
-        
-        if (displayHeight > maxContainerHeight) {
-          displayHeight = maxContainerHeight;
-          displayWidth = maxContainerHeight * aspectRatio;
+    if (zoomLevel === 0) {
+      // Fit mode: scale to fill container while maintaining aspect ratio
+      const aspectRatio = image.width / image.height;
+      const containerWidth = 400; // Approximate container width
+      
+      let displayWidth = containerWidth;
+      let displayHeight = containerWidth / aspectRatio;
+      
+      if (displayHeight > maxContainerHeight) {
+        displayHeight = maxContainerHeight;
+        displayWidth = maxContainerHeight * aspectRatio;
+      }
+      
+      // Ensure minimum display size for small images
+      const minSize = 200;
+      if (displayWidth < minSize && displayHeight < minSize) {
+        if (aspectRatio > 1) {
+          displayWidth = minSize;
+          displayHeight = minSize / aspectRatio;
+        } else {
+          displayHeight = minSize;
+          displayWidth = minSize * aspectRatio;
         }
-        
-        // Ensure minimum display size for small images
-        const minSize = 200;
-        if (displayWidth < minSize && displayHeight < minSize) {
-          if (aspectRatio > 1) {
-            displayWidth = minSize;
-            displayHeight = minSize / aspectRatio;
-          } else {
-            displayHeight = minSize;
-            displayWidth = minSize * aspectRatio;
-          }
-        }
-        
-        return {
-          width: displayWidth,
-          height: displayHeight,
-          maxWidth: '100%',
-          imageRendering: image.width < 128 ? 'pixelated' : 'auto',
-        };
+      }
+      
+      return {
+        width: displayWidth,
+        height: displayHeight,
+        maxWidth: '100%',
+        imageRendering: image.width < 128 ? 'pixelated' : 'auto',
+      };
     }
+    
+    // Custom zoom level
+    return {
+      width: image.width * zoomLevel,
+      height: image.height * zoomLevel,
+      maxWidth: 'none',
+      maxHeight: 'none',
+      imageRendering: zoomLevel > 1 ? 'pixelated' : 'auto',
+    };
+  };
+
+  // Format zoom level for display
+  const formatZoomLevel = (zoom: ZoomLevel): string => {
+    if (zoom === 0) return 'Fit';
+    return `${Math.round(zoom * 100)}%`;
   };
 
   if (loading) {
@@ -392,7 +382,7 @@ const ImageGallery = forwardRef<ImageGalleryHandle, ImageGalleryProps>(function 
 
                                     const selectedStep = getSelectedStep(tag, run) ?? steps[steps.length - 1];
                                     const image = getImageForTagRunStep(tag, run, selectedStep);
-                                    const scaleMode = getScaleMode(tag, run);
+                                    const zoomLevel = getZoomLevel(tag, run);
 
                                     return (
                                       <div key={run} className="image-gallery-item" style={{ borderLeftColor: getRunColor(runs.indexOf(run)) }}>
@@ -425,44 +415,32 @@ const ImageGallery = forwardRef<ImageGalleryHandle, ImageGalleryProps>(function 
                                         </div>
                                         {image && (
                                           <>
-                                            <div className="image-scale-control">
-                                              <span className="scale-label">Scale:</span>
-                                              <div className="scale-buttons">
-                                                <button
-                                                  className={`scale-btn ${scaleMode === 'fit' ? 'active' : ''}`}
-                                                  onClick={() => handleScaleModeChange(tag, run, 'fit')}
-                                                  title="Fit to container"
-                                                >
-                                                  Fit
-                                                </button>
-                                                <button
-                                                  className={`scale-btn ${scaleMode === 'actual' ? 'active' : ''}`}
-                                                  onClick={() => handleScaleModeChange(tag, run, 'actual')}
-                                                  title="Actual size (1:1)"
-                                                >
-                                                  1×
-                                                </button>
-                                                <button
-                                                  className={`scale-btn ${scaleMode === 'zoom-2x' ? 'active' : ''}`}
-                                                  onClick={() => handleScaleModeChange(tag, run, 'zoom-2x')}
-                                                  title="2x zoom"
-                                                >
-                                                  2×
-                                                </button>
-                                                <button
-                                                  className={`scale-btn ${scaleMode === 'zoom-4x' ? 'active' : ''}`}
-                                                  onClick={() => handleScaleModeChange(tag, run, 'zoom-4x')}
-                                                  title="4x zoom"
-                                                >
-                                                  4×
-                                                </button>
-                                              </div>
+                                            <div className="image-zoom-control">
+                                              <span className="zoom-label">Zoom:</span>
+                                              <button
+                                                className={`zoom-fit-btn ${zoomLevel === 0 ? 'active' : ''}`}
+                                                onClick={() => handleZoomChange(tag, run, 0)}
+                                                title="Fit to container"
+                                              >
+                                                Fit
+                                              </button>
+                                              <input
+                                                type="range"
+                                                min={0.25}
+                                                max={8}
+                                                step={0.25}
+                                                value={zoomLevel === 0 ? 1 : zoomLevel}
+                                                onChange={(e) => handleZoomChange(tag, run, parseFloat(e.target.value))}
+                                                className="zoom-slider"
+                                                title={`Zoom: ${formatZoomLevel(zoomLevel)}`}
+                                              />
+                                              <span className="zoom-value">{formatZoomLevel(zoomLevel)}</span>
                                             </div>
-                                            <div className={`image-container ${scaleMode !== 'fit' ? 'scrollable' : ''}`}>
+                                            <div className={`image-container ${zoomLevel !== 0 ? 'scrollable' : ''}`}>
                                               <img
                                                 src={`data:image/png;base64,${image.encoded_image}`}
                                                 alt={`${tag} - ${run} - Step ${selectedStep}`}
-                                                style={getImageStyle(image, scaleMode, height)}
+                                                style={getImageStyle(image, zoomLevel, height)}
                                               />
                                             </div>
                                             <div className="image-info">
