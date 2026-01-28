@@ -20,8 +20,8 @@ interface HistogramData {
   sum: number;
   num: number;
   sum_squares: number;
-  bucket_limit: number[];  // Upper bounds for each bucket
-  bucket: number[];        // Count in each bucket
+  bucket_limit?: number[];  // Upper bounds for each bucket (optional)
+  bucket?: number[];        // Count in each bucket (optional)
   run: string;  // The run (subdirectory) this data belongs to
 }
 
@@ -60,7 +60,9 @@ function formatNumber(n: number): string {
 function histogramToBucketData(histogram: HistogramData): BucketChartData[] {
   const data: BucketChartData[] = [];
   
-  if (histogram.bucket_limit.length === 0 || histogram.bucket.length === 0) {
+  // Check if bucket data exists
+  if (!histogram.bucket_limit || !histogram.bucket || 
+      histogram.bucket_limit.length === 0 || histogram.bucket.length === 0) {
     return data;
   }
   
