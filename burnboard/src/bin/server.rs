@@ -83,6 +83,10 @@ struct HistogramData {
     num: f64,
     sum: f64,
     sum_squares: f64,
+    /// Bucket limits (upper bounds for each bucket)
+    bucket_limit: Vec<f64>,
+    /// Bucket counts (number of values in each bucket)
+    bucket: Vec<f64>,
     run: String,  // The run (subdirectory) this data belongs to
 }
 
@@ -327,6 +331,8 @@ async fn get_histograms(
                         num: h.num,
                         sum: h.sum,
                         sum_squares: h.sum_squares,
+                        bucket_limit: h.bucket_limit.clone(),
+                        bucket: h.bucket.clone(),
                         run: event_with_run.run.clone(),
                     });
                 }

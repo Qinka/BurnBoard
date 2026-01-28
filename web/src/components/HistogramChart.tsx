@@ -7,7 +7,6 @@ import {
   CartesianGrid,
   Tooltip,
   ResponsiveContainer,
-  Legend,
 } from 'recharts';
 import ResizableChart from './ResizableChart';
 import { groupTagsByPrefix, getShortTagName } from '../utils/tagGrouping';
@@ -20,6 +19,9 @@ interface HistogramData {
   max: number;
   sum: number;
   num: number;
+  sum_squares: number;
+  bucket_limit: number[];  // Upper bounds for each bucket
+  bucket: number[];        // Count in each bucket
   run: string;  // The run (subdirectory) this data belongs to
 }
 
@@ -27,10 +29,12 @@ interface HistogramApiResponse {
   data: HistogramData[];
 }
 
-// Chart data for multi-run comparison
-interface MultiRunHistogramChartData {
-  name: string; // Statistic name: 'Min', 'Max', or 'Mean'
-  [runName: string]: number | string | undefined;
+// Chart data for histogram bucket distribution
+interface BucketChartData {
+  range: string;  // Bucket range label (e.g., "0.0 - 0.1")
+  rangeStart: number;
+  rangeEnd: number;
+  count: number;
 }
 
 interface HistogramChartProps {
@@ -44,73 +48,91 @@ export interface HistogramChartHandle {
   refresh: () => void;
 }
 
-interface SingleHistogramChartData {
-  name: string;
-  value: number;
+// Format number for display
+function formatNumber(n: number): string {
+  if (Math.abs(n) >= 1000000) return (n / 1000000).toFixed(1) + 'M';
+  if (Math.abs(n) >= 1000) return (n / 1000).toFixed(1) + 'K';
+  if (Math.abs(n) < 0.01 && n !== 0) return n.toExponential(2);
+  return n.toFixed(2);
+}
+
+// Convert histogram to bucket chart data
+function histogramToBucketData(histogram: HistogramData): BucketChartData[] {
+  const data: BucketChartData[] = [];
+  
+  if (histogram.bucket_limit.length === 0 || histogram.bucket.length === 0) {
+    return data;
+  }
+  
+  let prevLimit = histogram.min;
+  for (let i = 0; i < histogram.bucket_limit.length && i < histogram.bucket.length; i++) {
+    const rangeEnd = histogram.bucket_limit[i];
+    data.push({
+      range: `${formatNumber(prevLimit)} - ${formatNumber(rangeEnd)}`,
+      rangeStart: prevLimit,
+      rangeEnd: rangeEnd,
+      count: histogram.bucket[i],
+    });
+    prevLimit = rangeEnd;
+  }
+  
+  return data;
 }
 
 // Generate SVG content for histogram download
 function generateHistogramSVG(
-  chartData: SingleHistogramChartData[],
+  chartData: BucketChartData[],
   tag: string,
   histogram: HistogramData,
   barColor: string
 ): string {
-  const width = 600;
+  const width = 700;
   const height = 450;
-  const margin = { top: 60, right: 40, bottom: 80, left: 80 };
+  const margin = { top: 60, right: 40, bottom: 100, left: 80 };
   const chartWidth = width - margin.left - margin.right;
   const chartHeight = height - margin.top - margin.bottom;
 
-  const barWidth = chartWidth / (chartData.length * 2);
-  const barGap = barWidth / 2;
+  if (chartData.length === 0) {
+    return `<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" width="${width}" height="${height}">
+  <text x="${width / 2}" y="${height / 2}" text-anchor="middle">No bucket data available</text>
+</svg>`;
+  }
+
+  const barWidth = chartWidth / chartData.length;
 
   // Get data ranges
-  const yValues = chartData.map(d => d.value);
-  const yMin = Math.min(0, ...yValues);
+  const yValues = chartData.map(d => d.count);
   const yMax = Math.max(...yValues);
 
-  // Add some padding to y-axis
-  const yRange = yMax - yMin;
-  const yPadding = yRange * 0.1;
-  const yAxisMin = yMin - yPadding;
-  const yAxisMax = yMax + yPadding;
-
   // Scale functions
-  const scaleY = (v: number) => margin.top + chartHeight - ((v - yAxisMin) / (yAxisMax - yAxisMin || 1)) * chartHeight;
-  const zeroY = scaleY(0);
+  const scaleY = (v: number) => margin.top + chartHeight - (v / (yMax || 1)) * chartHeight;
 
   // Generate tick values
-  const generateTicks = (min: number, max: number, count: number = 5): number[] => {
-    const step = (max - min) / (count - 1);
-    return Array.from({ length: count }, (_, i) => min + i * step);
+  const generateTicks = (max: number, count: number = 5): number[] => {
+    const step = max / (count - 1);
+    return Array.from({ length: count }, (_, i) => i * step);
   };
 
-  const yTicks = generateTicks(yAxisMin, yAxisMax, 6);
-
-  // Format number for display
-  const formatNumber = (n: number): string => {
-    if (Math.abs(n) >= 1000000) return (n / 1000000).toFixed(1) + 'M';
-    if (Math.abs(n) >= 1000) return (n / 1000).toFixed(1) + 'K';
-    if (Math.abs(n) < 0.01 && n !== 0) return n.toExponential(2);
-    return n.toFixed(2);
-  };
+  const yTicks = generateTicks(yMax, 6);
 
   // Generate bars
   const bars = chartData.map((d, i) => {
-    const x = margin.left + barGap + i * (barWidth + barGap * 2);
-    const barHeight = Math.abs(scaleY(d.value) - zeroY);
-    const y = d.value >= 0 ? scaleY(d.value) : zeroY;
-    return `<rect x="${x}" y="${y}" width="${barWidth}" height="${barHeight}" fill="${barColor}"/>`;
+    const x = margin.left + i * barWidth;
+    const barHeight = (d.count / (yMax || 1)) * chartHeight;
+    const y = margin.top + chartHeight - barHeight;
+    return `<rect x="${x}" y="${y}" width="${barWidth - 1}" height="${barHeight}" fill="${barColor}" opacity="0.8"/>`;
   });
 
-  // Generate x-axis labels
-  const xLabels = chartData.map((d, i) => {
-    const x = margin.left + barGap + i * (barWidth + barGap * 2) + barWidth / 2;
-    return `<text x="${x}" y="${height - margin.bottom + 25}" text-anchor="middle" class="tick-label">${d.name}</text>`;
+  // Generate x-axis labels (show every Nth label to avoid overlap)
+  const labelInterval = Math.max(1, Math.floor(chartData.length / 8));
+  const xLabels = chartData.filter((_, i) => i % labelInterval === 0).map((d, i) => {
+    const x = margin.left + (i * labelInterval) * barWidth + barWidth / 2;
+    return `<text x="${x}" y="${height - margin.bottom + 20}" text-anchor="end" transform="rotate(-45, ${x}, ${height - margin.bottom + 20})" class="tick-label">${formatNumber(d.rangeStart)}</text>`;
   });
 
   const mean = histogram.num > 0 ? histogram.sum / histogram.num : 0;
+  const std = histogram.num > 0 ? Math.sqrt(histogram.sum_squares / histogram.num - mean * mean) : 0;
 
   return `<?xml version="1.0" encoding="UTF-8"?>
 <svg xmlns="http://www.w3.org/2000/svg" width="${width}" height="${height}" viewBox="0 0 ${width} ${height}">
@@ -118,7 +140,7 @@ function generateHistogramSVG(
     .title { font: bold 18px sans-serif; }
     .subtitle { font: 12px sans-serif; fill: #666; }
     .axis-label { font: 14px sans-serif; }
-    .tick-label { font: 11px sans-serif; }
+    .tick-label { font: 10px sans-serif; }
     .info-text { font: 11px sans-serif; fill: #666; }
     .grid { stroke: #e0e0e0; stroke-width: 1; }
     .axis { stroke: #333; stroke-width: 1; }
@@ -129,7 +151,7 @@ function generateHistogramSVG(
 
   <!-- Title -->
   <text x="${width / 2}" y="25" text-anchor="middle" class="title">${tag}</text>
-  <text x="${width / 2}" y="45" text-anchor="middle" class="subtitle">Step: ${histogram.step} | Count: ${histogram.num} | Sum: ${formatNumber(histogram.sum)}</text>
+  <text x="${width / 2}" y="45" text-anchor="middle" class="subtitle">Step: ${histogram.step} | N: ${histogram.num} | Mean: ${formatNumber(mean)} | Std: ${formatNumber(std)}</text>
 
   <!-- Grid lines -->
   ${yTicks.map(tick => `<line x1="${margin.left}" y1="${scaleY(tick)}" x2="${width - margin.right}" y2="${scaleY(tick)}" class="grid"/>`).join('\n  ')}
@@ -140,20 +162,21 @@ function generateHistogramSVG(
 
   <!-- X-axis labels -->
   ${xLabels.join('\n  ')}
-  <text x="${width / 2}" y="${height - 15}" text-anchor="middle" class="axis-label">Statistics</text>
+  <text x="${width / 2}" y="${height - 10}" text-anchor="middle" class="axis-label">Value</text>
 
   <!-- Y-axis ticks and labels -->
   ${yTicks.map(tick => `<text x="${margin.left - 10}" y="${scaleY(tick) + 4}" text-anchor="end" class="tick-label">${formatNumber(tick)}</text>`).join('\n  ')}
-  <text x="20" y="${height / 2}" text-anchor="middle" class="axis-label" transform="rotate(-90, 20, ${height / 2})">Value</text>
+  <text x="20" y="${height / 2}" text-anchor="middle" class="axis-label" transform="rotate(-90, 20, ${height / 2})">Count</text>
 
   <!-- Bars -->
   ${bars.join('\n  ')}
 
   <!-- Info box -->
-  <rect x="${width - margin.right - 140}" y="${margin.top}" width="130" height="60" fill="white" stroke="#ccc"/>
-  <text x="${width - margin.right - 130}" y="${margin.top + 18}" class="info-text">Min: ${formatNumber(histogram.min)}</text>
-  <text x="${width - margin.right - 130}" y="${margin.top + 34}" class="info-text">Max: ${formatNumber(histogram.max)}</text>
-  <text x="${width - margin.right - 130}" y="${margin.top + 50}" class="info-text">Mean: ${formatNumber(mean)}</text>
+  <rect x="${width - margin.right - 120}" y="${margin.top}" width="110" height="70" fill="white" stroke="#ccc"/>
+  <text x="${width - margin.right - 110}" y="${margin.top + 16}" class="info-text">Min: ${formatNumber(histogram.min)}</text>
+  <text x="${width - margin.right - 110}" y="${margin.top + 32}" class="info-text">Max: ${formatNumber(histogram.max)}</text>
+  <text x="${width - margin.right - 110}" y="${margin.top + 48}" class="info-text">Mean: ${formatNumber(mean)}</text>
+  <text x="${width - margin.right - 110}" y="${margin.top + 64}" class="info-text">Std: ${formatNumber(std)}</text>
 </svg>`;
 }
 
@@ -320,6 +343,13 @@ const HistogramChart = forwardRef<HistogramChartHandle, HistogramChartProps>(fun
     });
   };
 
+  // Get all histograms for a specific tag and run, sorted by step
+  const getHistogramsForTagAndRun = (tag: string, run: string): HistogramData[] => {
+    return data
+      .filter(item => item.tag === tag && item.run === run)
+      .sort((a, b) => a.step - b.step);
+  };
+
   // Get the latest histogram for a specific tag and run
   const getLatestHistogramForTagAndRun = (tag: string, run: string): HistogramData | null => {
     const tagRunData = data.filter(item => item.tag === tag && item.run === run);
@@ -340,47 +370,9 @@ const HistogramChart = forwardRef<HistogramChartHandle, HistogramChartProps>(fun
     return allRuns;
   };
 
-  // Get chart data for a specific tag with multiple runs
-  const getChartDataForTag = (tag: string): { chartData: MultiRunHistogramChartData[], tagRuns: string[], histograms: Map<string, HistogramData> } => {
-    const tagRuns = getRunsForTag(tag);
-    const histograms = new Map<string, HistogramData>();
-
-    // Get latest histogram for each run
-    for (const run of tagRuns) {
-      const latestHistogram = getLatestHistogramForTagAndRun(tag, run);
-      if (latestHistogram) {
-        histograms.set(run, latestHistogram);
-      }
-    }
-
-    // Build chart data with values for each run
-    const chartData: MultiRunHistogramChartData[] = [
-      { name: 'Min' },
-      { name: 'Max' },
-      { name: 'Mean' },
-    ];
-
-    for (const run of tagRuns) {
-      const histogram = histograms.get(run);
-      if (histogram) {
-        const mean = histogram.num > 0 ? histogram.sum / histogram.num : 0;
-        chartData[0][run] = histogram.min;
-        chartData[1][run] = histogram.max;
-        chartData[2][run] = mean;
-      }
-    }
-
-    return { chartData, tagRuns, histograms };
-  };
-
   // Handle SVG download for histogram
   const handleDownloadSVG = (tag: string, run: string, histogram: HistogramData) => {
-    const mean = histogram.num > 0 ? histogram.sum / histogram.num : 0;
-    const chartData: SingleHistogramChartData[] = [
-      { name: 'Min', value: histogram.min },
-      { name: 'Max', value: histogram.max },
-      { name: 'Mean', value: mean },
-    ];
+    const chartData = histogramToBucketData(histogram);
     const svgContent = generateHistogramSVG(
       chartData,
       tag,
@@ -441,7 +433,7 @@ const HistogramChart = forwardRef<HistogramChartHandle, HistogramChartProps>(fun
                 <div className={hasMultipleTags ? "group-content" : ""}>
                   {group.tags.map((tag) => {
                     const isCollapsed = collapsedTags.has(tag);
-                    const { chartData, tagRuns, histograms } = getChartDataForTag(tag);
+                    const tagRuns = getRunsForTag(tag);
                     if (tagRuns.length === 0) return null;
 
                     const displayName = hasMultipleTags ? getShortTagName(tag, group.name) : tag;
@@ -473,53 +465,77 @@ const HistogramChart = forwardRef<HistogramChartHandle, HistogramChartProps>(fun
                         </div>
                         {!isCollapsed && (
                           <div className="chart-content" id={`histogram-content-${tag.replace(/\//g, '-')}`}>
-                            <ResizableChart
-                              tag={tag}
-                              defaultHeight={250}
-                              minHeight={100}
-                              maxHeight={600}
-                            >
-                              {(height) => (
-                                <ResponsiveContainer width="100%" height={height}>
-                                  <BarChart data={chartData}>
-                                    <CartesianGrid strokeDasharray="3 3" />
-                                    <XAxis dataKey="name" />
-                                    <YAxis />
-                                    <Tooltip />
-                                    {tagRuns.length > 1 && <Legend />}
-                                    {tagRuns.map((run) => (
-                                      <Bar
-                                        key={run}
-                                        dataKey={run}
-                                        fill={getRunColor(runs.indexOf(run))}
-                                        name={run}
-                                      />
-                                    ))}
-                                  </BarChart>
-                                </ResponsiveContainer>
-                              )}
-                            </ResizableChart>
-                            <div className="histogram-info-multi">
-                              {tagRuns.map((run) => {
-                                const histogram = histograms.get(run);
-                                if (!histogram) return null;
-                                return (
-                                  <div key={run} className="histogram-run-info" style={{ borderLeftColor: getRunColor(runs.indexOf(run)) }}>
-                                    <strong>{run}:</strong>
-                                    <span>Count: {histogram.num}</span>
-                                    <span>Sum: {histogram.sum.toFixed(2)}</span>
+                            {tagRuns.map((run) => {
+                              const histograms = getHistogramsForTagAndRun(tag, run);
+                              if (histograms.length === 0) return null;
+                              
+                              const latestHistogram = histograms[histograms.length - 1];
+                              const bucketData = histogramToBucketData(latestHistogram);
+                              const mean = latestHistogram.num > 0 ? latestHistogram.sum / latestHistogram.num : 0;
+                              const std = latestHistogram.num > 0 
+                                ? Math.sqrt(latestHistogram.sum_squares / latestHistogram.num - mean * mean) 
+                                : 0;
+                              const barColor = getRunColor(runs.indexOf(run));
+                              
+                              return (
+                                <div key={run} className="histogram-run-section" style={{ borderLeftColor: barColor }}>
+                                  <div className="histogram-run-header">
+                                    <span className="histogram-run-name">{run}</span>
+                                    <span className="histogram-step-info">Step: {latestHistogram.step}</span>
+                                  </div>
+                                  
+                                  <ResizableChart
+                                    tag={`${tag}-${run}`}
+                                    defaultHeight={200}
+                                    minHeight={100}
+                                    maxHeight={400}
+                                  >
+                                    {(height) => (
+                                      <ResponsiveContainer width="100%" height={height}>
+                                        <BarChart data={bucketData} margin={{ top: 10, right: 30, left: 0, bottom: 20 }}>
+                                          <CartesianGrid strokeDasharray="3 3" />
+                                          <XAxis 
+                                            dataKey="rangeStart" 
+                                            tickFormatter={(value) => formatNumber(value)}
+                                            label={{ value: 'Value', position: 'insideBottom', offset: -10 }}
+                                            tick={{ fontSize: 11 }}
+                                          />
+                                          <YAxis 
+                                            label={{ value: 'Count', angle: -90, position: 'insideLeft' }}
+                                            tick={{ fontSize: 11 }}
+                                          />
+                                          <Tooltip 
+                                            formatter={(value: number) => [value.toFixed(0), 'Count']}
+                                            labelFormatter={(label: number) => `Value: ${formatNumber(label)}`}
+                                          />
+                                          <Bar
+                                            dataKey="count"
+                                            fill={barColor}
+                                            opacity={0.8}
+                                          />
+                                        </BarChart>
+                                      </ResponsiveContainer>
+                                    )}
+                                  </ResizableChart>
+                                  
+                                  <div className="histogram-stats">
+                                    <span>N: {latestHistogram.num.toFixed(0)}</span>
+                                    <span>Min: {formatNumber(latestHistogram.min)}</span>
+                                    <span>Max: {formatNumber(latestHistogram.max)}</span>
+                                    <span>Mean: {formatNumber(mean)}</span>
+                                    <span>Std: {formatNumber(std)}</span>
                                     <button
                                       type="button"
                                       className="download-btn"
-                                      onClick={() => handleDownloadSVG(tag, run, histogram)}
-                                      title="Download as SVG (vector image for papers)"
+                                      onClick={() => handleDownloadSVG(tag, run, latestHistogram)}
+                                      title="Download as SVG"
                                     >
                                       📥 SVG
                                     </button>
                                   </div>
-                                );
-                              })}
-                            </div>
+                                </div>
+                              );
+                            })}
                           </div>
                         )}
                       </div>

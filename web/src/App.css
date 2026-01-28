@@ -879,6 +879,53 @@
   font-size: 0.8125rem;
 }
 
+/* Histogram run section with distribution chart */
+.histogram-run-section {
+  margin-bottom: 1rem;
+  padding: 0.75rem;
+  border-left: 4px solid;
+  background-color: var(--bg-surface);
+  border-radius: 0 6px 6px 0;
+}
+
+.histogram-run-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 0.5rem;
+  padding-bottom: 0.5rem;
+  border-bottom: 1px solid var(--border-subtle);
+}
+
+.histogram-run-name {
+  font-weight: 600;
+  font-size: 0.9rem;
+  color: var(--text-primary);
+}
+
+.histogram-step-info {
+  font-size: 0.8rem;
+  color: var(--text-muted);
+}
+
+.histogram-stats {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 1rem;
+  justify-content: center;
+  margin-top: 0.5rem;
+  padding-top: 0.5rem;
+  border-top: 1px solid var(--border-subtle);
+  font-size: 0.8rem;
+  color: var(--text-secondary);
+}
+
+.histogram-stats span {
+  display: flex;
+  align-items: center;
+  gap: 0.25rem;
+}
+
 .histogram-info-multi {
   margin-top: 1rem;
   display: flex;
