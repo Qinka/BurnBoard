@@ -1087,24 +1087,24 @@
    ============================================ */
 
 .image-gallery-content {
-  padding: 1rem;
+  padding: 0.5rem;
 }
 
 .image-gallery-grid {
   display: flex;
   flex-wrap: wrap;
-  gap: 1.5rem;
+  gap: 0.75rem;
   justify-content: flex-start;
 }
 
 .image-gallery-item {
-  flex: 1 1 300px;
-  max-width: 100%;
+  flex: 0 0 auto;
+  width: auto;
   background-color: var(--bg-surface);
-  border-radius: 8px;
+  border-radius: 6px;
   border: 1px solid var(--border-subtle);
-  border-left-width: 4px;
-  padding: 1rem;
+  border-left-width: 3px;
+  padding: 0.5rem;
   transition: box-shadow 0.2s ease;
 }
 
@@ -1117,42 +1117,42 @@
   flex-wrap: wrap;
   justify-content: space-between;
   align-items: center;
-  gap: 0.75rem;
-  margin-bottom: 0.75rem;
-  padding-bottom: 0.75rem;
+  gap: 0.5rem;
+  margin-bottom: 0.5rem;
+  padding-bottom: 0.5rem;
   border-bottom: 1px solid var(--border-subtle);
 }
 
 .image-run-name {
   font-weight: 600;
-  font-size: 0.9rem;
+  font-size: 0.85rem;
   color: var(--text-primary);
 }
 
 .image-step-control {
   display: flex;
   align-items: center;
-  gap: 0.75rem;
+  gap: 0.5rem;
   flex-wrap: wrap;
 }
 
 .image-step-control label {
   display: flex;
   align-items: center;
-  gap: 0.5rem;
-  font-size: 0.85rem;
+  gap: 0.35rem;
+  font-size: 0.8rem;
   color: var(--text-secondary);
 }
 
 .step-selector {
-  padding: 0.35rem 0.5rem;
-  font-size: 0.85rem;
+  padding: 0.25rem 0.4rem;
+  font-size: 0.8rem;
   border-radius: 4px;
   border: 1px solid var(--border-medium);
   background-color: var(--bg-surface-elevated);
   color: var(--text-primary);
   cursor: pointer;
-  min-width: 80px;
+  min-width: 60px;
 }
 
 .step-selector:hover {
@@ -1160,8 +1160,8 @@
 }
 
 .step-slider {
-  width: 120px;
-  height: 6px;
+  width: 80px;
+  height: 5px;
   cursor: pointer;
   accent-color: var(--primary-orange);
 }
@@ -1174,8 +1174,8 @@
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 0.5rem;
-  padding: 0.5rem;
+  gap: 0.35rem;
+  padding: 0.25rem;
 }
 
 .image-thumbnail-wrapper {
@@ -1216,22 +1216,22 @@
 }
 
 .image-thumbnail-icon {
-  font-size: 2rem;
+  font-size: 1.5rem;
   color: white;
 }
 
 .image-thumbnail-actions {
   display: flex;
-  gap: 0.5rem;
+  gap: 0.35rem;
 }
 
 .image-download-btn {
-  padding: 0.35rem 0.75rem;
-  font-size: 0.8rem;
+  padding: 0.2rem 0.5rem;
+  font-size: 0.75rem;
   border: 1px solid var(--primary-orange);
   background-color: transparent;
   color: var(--primary-orange);
-  border-radius: 4px;
+  border-radius: 3px;
   cursor: pointer;
   transition: all 0.2s ease;
 }
@@ -1243,17 +1243,16 @@
 
 .image-info {
   display: flex;
-  gap: 1.5rem;
+  gap: 0.75rem;
   justify-content: center;
   color: var(--text-muted);
-  font-size: 0.8rem;
-  margin-top: 0.25rem;
+  font-size: 0.7rem;
 }
 
 .image-info span {
   display: flex;
   align-items: center;
-  gap: 0.25rem;
+  gap: 0.15rem;
 }
 
 /* ============================================

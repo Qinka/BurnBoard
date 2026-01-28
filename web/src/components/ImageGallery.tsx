@@ -1,5 +1,4 @@
 import { useEffect, useState, useImperativeHandle, forwardRef, useCallback, useMemo } from 'react';
-import ResizableChart from './ResizableChart';
 import ImageViewer from './ImageViewer';
 import { groupTagsByPrefix, getShortTagName } from '../utils/tagGrouping';
 import { getRunColor } from '../utils/colors';
@@ -324,96 +323,87 @@ const ImageGallery = forwardRef<ImageGalleryHandle, ImageGalleryProps>(function 
                         </div>
                         {!isCollapsed && (
                           <div className="chart-content image-gallery-content" id={`image-content-${tag.replace(/\//g, '-')}`}>
-                            <ResizableChart
-                              tag={tag}
-                              defaultHeight={200}
-                              minHeight={150}
-                              maxHeight={400}
-                            >
-                              {() => (
-                                <div className="image-gallery-grid">
-                                  {tagRuns.map((run) => {
-                                    const steps = getStepsForTagAndRun(tag, run);
-                                    if (steps.length === 0) return null;
+                            <div className="image-gallery-grid">
+                              {tagRuns.map((run) => {
+                                const steps = getStepsForTagAndRun(tag, run);
+                                if (steps.length === 0) return null;
 
-                                    const selectedStep = getSelectedStep(tag, run) ?? steps[steps.length - 1];
-                                    const image = getImageForTagRunStep(tag, run, selectedStep);
+                                const selectedStep = getSelectedStep(tag, run) ?? steps[steps.length - 1];
+                                const image = getImageForTagRunStep(tag, run, selectedStep);
 
-                                    return (
-                                      <div key={run} className="image-gallery-item" style={{ borderLeftColor: getRunColor(runs.indexOf(run)) }}>
-                                        <div className="image-gallery-header">
-                                          <span className="image-run-name">{run}</span>
-                                          <div className="image-step-control">
-                                            <label>
-                                              Step:
-                                              <select
-                                                value={selectedStep}
-                                                onChange={(e) => handleStepChange(tag, run, parseInt(e.target.value))}
-                                                className="step-selector"
-                                              >
-                                                {steps.map((step) => (
-                                                  <option key={step} value={step}>
-                                                    {step}
-                                                  </option>
-                                                ))}
-                                              </select>
-                                            </label>
-                                            <input
-                                              type="range"
-                                              min={0}
-                                              max={steps.length - 1}
-                                              value={steps.indexOf(selectedStep)}
-                                              onChange={(e) => handleStepChange(tag, run, steps[parseInt(e.target.value)])}
-                                              className="step-slider"
-                                            />
+                                return (
+                                  <div key={run} className="image-gallery-item" style={{ borderLeftColor: getRunColor(runs.indexOf(run)) }}>
+                                    <div className="image-gallery-header">
+                                      <span className="image-run-name">{run}</span>
+                                      <div className="image-step-control">
+                                        <label>
+                                          Step:
+                                          <select
+                                            value={selectedStep}
+                                            onChange={(e) => handleStepChange(tag, run, parseInt(e.target.value))}
+                                            className="step-selector"
+                                          >
+                                            {steps.map((step) => (
+                                              <option key={step} value={step}>
+                                                {step}
+                                              </option>
+                                            ))}
+                                          </select>
+                                        </label>
+                                        <input
+                                          type="range"
+                                          min={0}
+                                          max={steps.length - 1}
+                                          value={steps.indexOf(selectedStep)}
+                                          onChange={(e) => handleStepChange(tag, run, steps[parseInt(e.target.value)])}
+                                          className="step-slider"
+                                        />
+                                      </div>
+                                    </div>
+                                    {image && (
+                                      <div className="image-thumbnail-container">
+                                        <div 
+                                          className="image-thumbnail-wrapper"
+                                          onClick={() => openImageViewer(image)}
+                                          title="Click to view full image"
+                                        >
+                                          <img
+                                            src={`data:image/png;base64,${image.encoded_image}`}
+                                            alt={`${tag} - ${run} - Step ${selectedStep}`}
+                                            className="image-thumbnail"
+                                            style={{
+                                              width: THUMBNAIL_SIZE,
+                                              height: THUMBNAIL_SIZE,
+                                              objectFit: 'contain',
+                                              imageRendering: image.width < 128 ? 'pixelated' : 'auto',
+                                            }}
+                                          />
+                                          <div className="image-thumbnail-overlay">
+                                            <span className="image-thumbnail-icon">🔍</span>
                                           </div>
                                         </div>
-                                        {image && (
-                                          <div className="image-thumbnail-container">
-                                            <div 
-                                              className="image-thumbnail-wrapper"
-                                              onClick={() => openImageViewer(image)}
-                                              title="Click to view full image"
-                                            >
-                                              <img
-                                                src={`data:image/png;base64,${image.encoded_image}`}
-                                                alt={`${tag} - ${run} - Step ${selectedStep}`}
-                                                className="image-thumbnail"
-                                                style={{
-                                                  width: THUMBNAIL_SIZE,
-                                                  height: THUMBNAIL_SIZE,
-                                                  objectFit: 'contain',
-                                                  imageRendering: image.width < 128 ? 'pixelated' : 'auto',
-                                                }}
-                                              />
-                                              <div className="image-thumbnail-overlay">
-                                                <span className="image-thumbnail-icon">🔍</span>
-                                              </div>
-                                            </div>
-                                            <div className="image-thumbnail-actions">
-                                              <button
-                                                className="image-download-btn"
-                                                onClick={(e) => {
-                                                  e.stopPropagation();
-                                                  handleDownload(image);
-                                                }}
-                                                title="Download image"
-                                              >
-                                                ⬇ Download
-                                              </button>
-                                            </div>
-                                            <div className="image-info">
-                                              <span>Size: {image.width}×{image.height}</span>
-                                              <span>Step: {image.step}</span>
-                                            </div>
-                                          </div>
-                                        )}
+                                        <div className="image-thumbnail-actions">
+                                          <button
+                                            className="image-download-btn"
+                                            onClick={(e) => {
+                                              e.stopPropagation();
+                                              handleDownload(image);
+                                            }}
+                                            title="Download image"
+                                          >
+                                            ⬇ Download
+                                          </button>
+                                        </div>
+                                        <div className="image-info">
+                                          <span>{image.width}×{image.height}</span>
+                                          <span>Step {image.step}</span>
+                                        </div>
                                       </div>
-                                    );
-                                  })}
-                                </div>
-                              )}
-                            </ResizableChart>
+                                    )}
+                                  </div>
+                                );
+                              })}
+                            </div>
                           </div>
                         )}
                       </div>
