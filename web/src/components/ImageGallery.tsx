@@ -1,5 +1,6 @@
 import { useEffect, useState, useImperativeHandle, forwardRef, useCallback, useMemo } from 'react';
 import ResizableChart from './ResizableChart';
+import ImageViewer from './ImageViewer';
 import { groupTagsByPrefix, getShortTagName } from '../utils/tagGrouping';
 import { getRunColor } from '../utils/colors';
 
@@ -14,8 +15,8 @@ interface ImageData {
   run: string;
 }
 
-// Zoom level: 0.5 = 50%, 1 = 100%, 2 = 200%, etc. 0 means "fit to container"
-type ZoomLevel = number;
+// Thumbnail size configuration
+const THUMBNAIL_SIZE = 120;
 
 interface ImageApiResponse {
   data: ImageData[];
@@ -46,7 +47,9 @@ const ImageGallery = forwardRef<ImageGalleryHandle, ImageGalleryProps>(function 
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [selectedSteps, setSelectedSteps] = useState<Map<string, number>>(new Map());
-  const [imageZoomLevels, setImageZoomLevels] = useState<Map<string, ZoomLevel>>(new Map());
+  // Image viewer modal state
+  const [viewerImage, setViewerImage] = useState<ImageData | null>(null);
+  const [isViewerOpen, setIsViewerOpen] = useState(false);
 
   const tagGroups = useMemo(() => groupTagsByPrefix(tags), [tags]);
 
@@ -208,73 +211,26 @@ const ImageGallery = forwardRef<ImageGalleryHandle, ImageGalleryProps>(function 
     return selectedSteps.get(key);
   };
 
-  // Get zoom level for a specific image (0 = fit, otherwise it's a multiplier like 1, 2, 4)
-  const getZoomLevel = (tag: string, run: string): ZoomLevel => {
-    const key = `${tag}|${run}`;
-    return imageZoomLevels.get(key) ?? 0; // Default to fit mode (0)
+  // Open image viewer modal
+  const openImageViewer = (image: ImageData) => {
+    setViewerImage(image);
+    setIsViewerOpen(true);
   };
 
-  // Set zoom level for a specific image
-  const handleZoomChange = (tag: string, run: string, zoom: ZoomLevel) => {
-    const key = `${tag}|${run}`;
-    setImageZoomLevels(prev => {
-      const updated = new Map(prev);
-      updated.set(key, zoom);
-      return updated;
-    });
+  // Close image viewer modal
+  const closeImageViewer = () => {
+    setIsViewerOpen(false);
+    setViewerImage(null);
   };
 
-  // Calculate image display style based on zoom level
-  const getImageStyle = (image: ImageData, zoomLevel: ZoomLevel, containerHeight: number): React.CSSProperties => {
-    const maxContainerHeight = containerHeight - 100; // Account for header and info
-    
-    if (zoomLevel === 0) {
-      // Fit mode: scale to fill container while maintaining aspect ratio
-      const aspectRatio = image.width / image.height;
-      const containerWidth = 400; // Approximate container width
-      
-      let displayWidth = containerWidth;
-      let displayHeight = containerWidth / aspectRatio;
-      
-      if (displayHeight > maxContainerHeight) {
-        displayHeight = maxContainerHeight;
-        displayWidth = maxContainerHeight * aspectRatio;
-      }
-      
-      // Ensure minimum display size for small images
-      const minSize = 200;
-      if (displayWidth < minSize && displayHeight < minSize) {
-        if (aspectRatio > 1) {
-          displayWidth = minSize;
-          displayHeight = minSize / aspectRatio;
-        } else {
-          displayHeight = minSize;
-          displayWidth = minSize * aspectRatio;
-        }
-      }
-      
-      return {
-        width: displayWidth,
-        height: displayHeight,
-        maxWidth: '100%',
-        imageRendering: image.width < 128 ? 'pixelated' : 'auto',
-      };
-    }
-    
-    // Custom zoom level
-    return {
-      width: image.width * zoomLevel,
-      height: image.height * zoomLevel,
-      maxWidth: 'none',
-      maxHeight: 'none',
-      imageRendering: zoomLevel > 1 ? 'pixelated' : 'auto',
-    };
-  };
-
-  // Format zoom level for display
-  const formatZoomLevel = (zoom: ZoomLevel): string => {
-    if (zoom === 0) return 'Fit';
-    return `${Math.round(zoom * 100)}%`;
+  // Download image
+  const handleDownload = (image: ImageData) => {
+    const link = document.createElement('a');
+    link.href = `data:image/png;base64,${image.encoded_image}`;
+    link.download = `${image.tag.replace(/\//g, '_')}_${image.run}_step${image.step}.png`;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
   };
 
   if (loading) {
@@ -370,19 +326,18 @@ const ImageGallery = forwardRef<ImageGalleryHandle, ImageGalleryProps>(function 
                           <div className="chart-content image-gallery-content" id={`image-content-${tag.replace(/\//g, '-')}`}>
                             <ResizableChart
                               tag={tag}
-                              defaultHeight={300}
+                              defaultHeight={200}
                               minHeight={150}
-                              maxHeight={800}
+                              maxHeight={400}
                             >
-                              {(height) => (
-                                <div className="image-gallery-grid" style={{ minHeight: height }}>
+                              {() => (
+                                <div className="image-gallery-grid">
                                   {tagRuns.map((run) => {
                                     const steps = getStepsForTagAndRun(tag, run);
                                     if (steps.length === 0) return null;
 
                                     const selectedStep = getSelectedStep(tag, run) ?? steps[steps.length - 1];
                                     const image = getImageForTagRunStep(tag, run, selectedStep);
-                                    const zoomLevel = getZoomLevel(tag, run);
 
                                     return (
                                       <div key={run} className="image-gallery-item" style={{ borderLeftColor: getRunColor(runs.indexOf(run)) }}>
@@ -414,40 +369,44 @@ const ImageGallery = forwardRef<ImageGalleryHandle, ImageGalleryProps>(function 
                                           </div>
                                         </div>
                                         {image && (
-                                          <>
-                                            <div className="image-zoom-control">
-                                              <span className="zoom-label">Zoom:</span>
-                                              <button
-                                                className={`zoom-fit-btn ${zoomLevel === 0 ? 'active' : ''}`}
-                                                onClick={() => handleZoomChange(tag, run, 0)}
-                                                title="Fit to container"
-                                              >
-                                                Fit
-                                              </button>
-                                              <input
-                                                type="range"
-                                                min={0.25}
-                                                max={8}
-                                                step={0.25}
-                                                value={zoomLevel === 0 ? 1 : zoomLevel}
-                                                onChange={(e) => handleZoomChange(tag, run, parseFloat(e.target.value))}
-                                                className="zoom-slider"
-                                                title={`Zoom: ${formatZoomLevel(zoomLevel)}`}
-                                              />
-                                              <span className="zoom-value">{formatZoomLevel(zoomLevel)}</span>
-                                            </div>
-                                            <div className={`image-container ${zoomLevel !== 0 ? 'scrollable' : ''}`}>
+                                          <div className="image-thumbnail-container">
+                                            <div 
+                                              className="image-thumbnail-wrapper"
+                                              onClick={() => openImageViewer(image)}
+                                              title="Click to view full image"
+                                            >
                                               <img
                                                 src={`data:image/png;base64,${image.encoded_image}`}
                                                 alt={`${tag} - ${run} - Step ${selectedStep}`}
-                                                style={getImageStyle(image, zoomLevel, height)}
+                                                className="image-thumbnail"
+                                                style={{
+                                                  width: THUMBNAIL_SIZE,
+                                                  height: THUMBNAIL_SIZE,
+                                                  objectFit: 'contain',
+                                                  imageRendering: image.width < 128 ? 'pixelated' : 'auto',
+                                                }}
                                               />
+                                              <div className="image-thumbnail-overlay">
+                                                <span className="image-thumbnail-icon">🔍</span>
+                                              </div>
+                                            </div>
+                                            <div className="image-thumbnail-actions">
+                                              <button
+                                                className="image-download-btn"
+                                                onClick={(e) => {
+                                                  e.stopPropagation();
+                                                  handleDownload(image);
+                                                }}
+                                                title="Download image"
+                                              >
+                                                ⬇ Download
+                                              </button>
                                             </div>
                                             <div className="image-info">
                                               <span>Size: {image.width}×{image.height}</span>
                                               <span>Step: {image.step}</span>
                                             </div>
-                                          </>
+                                          </div>
                                         )}
                                       </div>
                                     );
@@ -468,6 +427,21 @@ const ImageGallery = forwardRef<ImageGalleryHandle, ImageGalleryProps>(function 
       </div>
       {tags.length === 0 && (
         <div className="no-selection">No image data available</div>
+      )}
+      
+      {/* Image Viewer Modal */}
+      {viewerImage && (
+        <ImageViewer
+          isOpen={isViewerOpen}
+          onClose={closeImageViewer}
+          imageSrc={`data:image/png;base64,${viewerImage.encoded_image}`}
+          imageAlt={`${viewerImage.tag} - ${viewerImage.run} - Step ${viewerImage.step}`}
+          imageWidth={viewerImage.width}
+          imageHeight={viewerImage.height}
+          step={viewerImage.step}
+          tag={viewerImage.tag}
+          run={viewerImage.run}
+        />
       )}
     </div>
   );
