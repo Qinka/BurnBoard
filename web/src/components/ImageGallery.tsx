@@ -14,6 +14,8 @@ interface ImageData {
   run: string;
 }
 
+type ImageScaleMode = 'fit' | 'actual' | 'zoom-2x' | 'zoom-4x';
+
 interface ImageApiResponse {
   data: ImageData[];
 }
@@ -43,6 +45,7 @@ const ImageGallery = forwardRef<ImageGalleryHandle, ImageGalleryProps>(function 
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [selectedSteps, setSelectedSteps] = useState<Map<string, number>>(new Map());
+  const [imageScaleModes, setImageScaleModes] = useState<Map<string, ImageScaleMode>>(new Map());
 
   const tagGroups = useMemo(() => groupTagsByPrefix(tags), [tags]);
 
@@ -204,6 +207,86 @@ const ImageGallery = forwardRef<ImageGalleryHandle, ImageGalleryProps>(function 
     return selectedSteps.get(key);
   };
 
+  // Get scale mode for a specific image
+  const getScaleMode = (tag: string, run: string): ImageScaleMode => {
+    const key = `${tag}|${run}`;
+    return imageScaleModes.get(key) || 'fit';
+  };
+
+  // Set scale mode for a specific image
+  const handleScaleModeChange = (tag: string, run: string, mode: ImageScaleMode) => {
+    const key = `${tag}|${run}`;
+    setImageScaleModes(prev => {
+      const updated = new Map(prev);
+      updated.set(key, mode);
+      return updated;
+    });
+  };
+
+  // Calculate image display style based on scale mode
+  const getImageStyle = (image: ImageData, scaleMode: ImageScaleMode, containerHeight: number): React.CSSProperties => {
+    const maxContainerHeight = containerHeight - 100; // Account for header and info
+    
+    switch (scaleMode) {
+      case 'actual':
+        return {
+          width: image.width,
+          height: image.height,
+          maxWidth: 'none',
+          maxHeight: 'none',
+        };
+      case 'zoom-2x':
+        return {
+          width: image.width * 2,
+          height: image.height * 2,
+          maxWidth: 'none',
+          maxHeight: 'none',
+          imageRendering: 'pixelated',
+        };
+      case 'zoom-4x':
+        return {
+          width: image.width * 4,
+          height: image.height * 4,
+          maxWidth: 'none',
+          maxHeight: 'none',
+          imageRendering: 'pixelated',
+        };
+      case 'fit':
+      default:
+        // For small images, scale up to fill container while maintaining aspect ratio
+        // For large images, scale down to fit
+        const aspectRatio = image.width / image.height;
+        const containerWidth = 400; // Approximate container width
+        
+        let displayWidth = containerWidth;
+        let displayHeight = containerWidth / aspectRatio;
+        
+        if (displayHeight > maxContainerHeight) {
+          displayHeight = maxContainerHeight;
+          displayWidth = maxContainerHeight * aspectRatio;
+        }
+        
+        // Ensure minimum display size for small images
+        const minSize = 200;
+        if (displayWidth < minSize && displayHeight < minSize) {
+          if (aspectRatio > 1) {
+            displayWidth = minSize;
+            displayHeight = minSize / aspectRatio;
+          } else {
+            displayHeight = minSize;
+            displayWidth = minSize * aspectRatio;
+          }
+        }
+        
+        return {
+          width: displayWidth,
+          height: displayHeight,
+          maxWidth: '100%',
+          imageRendering: image.width < 128 ? 'pixelated' : 'auto',
+        };
+    }
+  };
+
   if (loading) {
     return <div className="loading">Loading image data...</div>;
   }
@@ -309,6 +392,7 @@ const ImageGallery = forwardRef<ImageGalleryHandle, ImageGalleryProps>(function 
 
                                     const selectedStep = getSelectedStep(tag, run) ?? steps[steps.length - 1];
                                     const image = getImageForTagRunStep(tag, run, selectedStep);
+                                    const scaleMode = getScaleMode(tag, run);
 
                                     return (
                                       <div key={run} className="image-gallery-item" style={{ borderLeftColor: getRunColor(runs.indexOf(run)) }}>
@@ -340,17 +424,52 @@ const ImageGallery = forwardRef<ImageGalleryHandle, ImageGalleryProps>(function 
                                           </div>
                                         </div>
                                         {image && (
-                                          <div className="image-container">
-                                            <img
-                                              src={`data:image/png;base64,${image.encoded_image}`}
-                                              alt={`${tag} - ${run} - Step ${selectedStep}`}
-                                              style={{ maxWidth: '100%', maxHeight: height - 60 }}
-                                            />
+                                          <>
+                                            <div className="image-scale-control">
+                                              <span className="scale-label">Scale:</span>
+                                              <div className="scale-buttons">
+                                                <button
+                                                  className={`scale-btn ${scaleMode === 'fit' ? 'active' : ''}`}
+                                                  onClick={() => handleScaleModeChange(tag, run, 'fit')}
+                                                  title="Fit to container"
+                                                >
+                                                  Fit
+                                                </button>
+                                                <button
+                                                  className={`scale-btn ${scaleMode === 'actual' ? 'active' : ''}`}
+                                                  onClick={() => handleScaleModeChange(tag, run, 'actual')}
+                                                  title="Actual size (1:1)"
+                                                >
+                                                  1×
+                                                </button>
+                                                <button
+                                                  className={`scale-btn ${scaleMode === 'zoom-2x' ? 'active' : ''}`}
+                                                  onClick={() => handleScaleModeChange(tag, run, 'zoom-2x')}
+                                                  title="2x zoom"
+                                                >
+                                                  2×
+                                                </button>
+                                                <button
+                                                  className={`scale-btn ${scaleMode === 'zoom-4x' ? 'active' : ''}`}
+                                                  onClick={() => handleScaleModeChange(tag, run, 'zoom-4x')}
+                                                  title="4x zoom"
+                                                >
+                                                  4×
+                                                </button>
+                                              </div>
+                                            </div>
+                                            <div className={`image-container ${scaleMode !== 'fit' ? 'scrollable' : ''}`}>
+                                              <img
+                                                src={`data:image/png;base64,${image.encoded_image}`}
+                                                alt={`${tag} - ${run} - Step ${selectedStep}`}
+                                                style={getImageStyle(image, scaleMode, height)}
+                                              />
+                                            </div>
                                             <div className="image-info">
                                               <span>Size: {image.width}×{image.height}</span>
                                               <span>Step: {image.step}</span>
                                             </div>
-                                          </div>
+                                          </>
                                         )}
                                       </div>
                                     );
