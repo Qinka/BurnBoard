@@ -27,6 +27,7 @@ serde_json = "1.0"
 bytes = "1.5"
 byteorder = "1.5"
 crc32c = "0.6"
+base64 = "0.22"
 
 # System Info
 sys-info = "0.9"

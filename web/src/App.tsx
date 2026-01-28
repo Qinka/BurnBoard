@@ -1,6 +1,7 @@
 import { useState, useRef, useEffect, useCallback } from 'react'
 import ScalarChart, { ScalarChartHandle } from './components/ScalarChart'
 import HistogramChart, { HistogramChartHandle } from './components/HistogramChart'
+import ImageGallery, { ImageGalleryHandle } from './components/ImageGallery'
 import SettingsModal from './components/SettingsModal'
 import { getRunColor } from './utils/colors'
 import { usePerformanceSettings } from './utils/performanceSettings'
@@ -9,7 +10,7 @@ import './App.css'
 type Theme = 'light' | 'dark'
 
 function App() {
-  const [activeTab, setActiveTab] = useState<'scalars' | 'histograms'>('scalars')
+  const [activeTab, setActiveTab] = useState<'scalars' | 'histograms' | 'images'>('scalars')
   const [autoRefresh, setAutoRefresh] = useState(true)
   const [refreshInterval, setRefreshInterval] = useState(5)
   const [lastRefresh, setLastRefresh] = useState<Date | null>(null)
@@ -25,6 +26,7 @@ function App() {
   const { settings, updateSettings, recordLatency } = usePerformanceSettings()
   const scalarChartRef = useRef<ScalarChartHandle>(null)
   const histogramChartRef = useRef<HistogramChartHandle>(null)
+  const imageGalleryRef = useRef<ImageGalleryHandle>(null)
 
   // Apply theme to document
   useEffect(() => {
@@ -75,6 +77,8 @@ function App() {
       scalarChartRef.current.refresh()
     } else if (activeTab === 'histograms' && histogramChartRef.current) {
       histogramChartRef.current.refresh()
+    } else if (activeTab === 'images' && imageGalleryRef.current) {
+      imageGalleryRef.current.refresh()
     }
     setLastRefresh(new Date())
   }, [activeTab])
@@ -92,7 +96,12 @@ function App() {
 
   // Update document title based on active tab
   useEffect(() => {
-    const tabName = activeTab === 'scalars' ? 'Scalars' : 'Histograms'
+    const tabNames: Record<string, string> = {
+      scalars: 'Scalars',
+      histograms: 'Histograms',
+      images: 'Images'
+    }
+    const tabName = tabNames[activeTab] || 'Scalars'
     document.title = `${tabName} - BurnBoard`
   }, [activeTab])
 
@@ -122,6 +131,12 @@ function App() {
             onClick={() => setActiveTab('histograms')}
           >
             Histograms
+          </button>
+          <button
+            className={`header-tab ${activeTab === 'images' ? 'active' : ''}`}
+            onClick={() => setActiveTab('images')}
+          >
+            Images
           </button>
         </nav>
 
@@ -215,6 +230,15 @@ function App() {
               onRunsChange={handleRunsChange}
               visibleRuns={visibleRuns}
               maxPoints={settings.histogramMaxPoints}
+              onLatencyRecord={recordLatency}
+            />
+          )}
+          {activeTab === 'images' && (
+            <ImageGallery
+              ref={imageGalleryRef}
+              onRunsChange={handleRunsChange}
+              visibleRuns={visibleRuns}
+              maxPoints={50}
               onLatencyRecord={recordLatency}
             />
           )}
